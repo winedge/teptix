@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Scanner</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f7f7f7;
+            font-family: Arial, sans-serif;
+            transition: background-color 0.3s ease;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #333;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        #previewWrapper {
+            width: 100%;
+            max-width: 300px;
+            margin: 20px auto;
+            position: relative;
+        }
+
+        #preview {
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        .approved-bg {
+            background-color: #82e0aa; /* Green color for approved background */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QR Code Scanner</h1>
+        <div id="result"></div>
+        <div id="previewWrapper">
+            <video id="preview" playsinline></video>
+        </div>
+    </div>
+
+    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+    <script>
+        function scanQRCode() {
+            const scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
+
+            scanner.addListener('scan', function (content) {
+                const ticketNumber = content.trim();
+                checkTicketStatus(ticketNumber);
+            });
+
+            Instascan.Camera.getCameras().then(function (cameras) {
+                const backCamera = cameras.find(camera => camera.name.toLowerCase().includes('back'));
+
+                if (backCamera) {
+                    scanner.start(backCamera);
+                } else if (cameras.length > 0) {
+                    scanner.start(cameras[0]);
+                } else {
+                    console.error('No cameras found.');
+                }
+            }).catch(function (e) {
+                console.error(e);
+            });
+        }
+        
+        function checkTicketStatus(ticketNumber) {
+            const url = 'https://script.google.com/macros/s/AKfycbzuJiO-dSvMJwS1NaP5fABlxyL4rm3PfSxXVjBAtxln9vLRTYLS1uyh3aRwq34omNOLHQ/exec?ticket=' + ticketNumber;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.hasOwnProperty('approved')) {
+                        if (data.approved) {
+                            document.getElementById('result').textContent = 'Approved';
+                            document.body.classList.add('approved-bg'); // Add class for approved background
+                            
+                            // Reset scanner and message after 3 seconds
+                            setTimeout(function () {
+                                document.getElementById('result').textContent = '';
+                                document.body.classList.remove('approved-bg');
+                                scanQRCode(); // Restart scanner
+                            }, 3000);
+                        } else {
+                            document.getElementById('result').textContent = 'Declined (Already Scanned)';
+                            document.body.classList.remove('approved-bg'); // Remove class if not approved
+                        }
+                    } else if (data.hasOwnProperty('error')) {
+                        document.getElementById('result').textContent = data.error;
+                    } else {
+                        document.getElementById('result').textContent = 'Unknown Error';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('result').textContent = 'Error fetching ticket status';
+                });
+        }
+
+        window.onload = function () {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }) // Try to default to back camera on Android
+                .then(function (stream) {
+                    scanQRCode();
+                    document.getElementById('preview').srcObject = stream;
+                })
+                .catch(function (err) {
+                    console.error('Error accessing camera:', err);
+                    alert('Failed to access camera. Please enable camera access in your browser settings.');
+                });
+        };
+    </script>
+</body>
+</html>

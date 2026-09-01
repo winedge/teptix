@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Venue Seat Map</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #F5F5F5;
+    }
+    .venue-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .section-title small {
+      display: block;
+      font-weight: normal;
+      font-size: 18px;
+      margin-top: 5px;
+      color: #333;
+    }
+    @media (max-width: 480px) {
+      .section-title small {
+        font-size: 14px;
+      }
+    }
+    .stage {
+      background-color: #444;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      font-size: 24px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+    }
+    .section {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 20px 10px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+    .section-title {
+      width: 100%;
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+    .table-container {
+      position: relative;
+      width: 70px;
+      height: 70px;
+      margin: 10px;
+    }
+    .table {
+      width: 100%;
+      height: 100%;
+      background-image: url('tabeh2h1 (1).png');
+      background-size: cover;
+      background-repeat: no-repeat;
+    }
+    .table-number {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-weight: bold;
+      color: white;
+      font-size: 18px;
+      text-shadow: 1px 1px 2px black;
+    }
+    /* Section background colors */
+    .master-blaster { background-color: #FBE287; }
+    .century-club   { background-color: #FFF5CB; }
+    .power-play     { background-color: #FFD4BC; }
+    .all-rounder    { background-color: #F7B7B4; }
+    .fan-pass       { background-color: #F9A3A4; }
+    /* Responsive styles */
+    @media (max-width: 768px) {
+      .table-container {
+        width: 55px;
+        height: 55px;
+        margin: 8px;
+      }
+      .table-number {
+        font-size: 14px;
+      }
+      .stage {
+        font-size: 20px;
+        padding: 15px;
+      }
+      .section-title {
+        font-size: 16px;
+        margin-bottom: 15px;
+      }
+      .venue-container {
+        padding: 15px;
+      }
+    }
+    @media (max-width: 480px) {
+      .table-container {
+        width: 45px;
+        height: 45px;
+        margin: 6px;
+      }
+      .table-number {
+        font-size: 12px;
+      }
+      .stage {
+        font-size: 18px;
+        padding: 12px;
+      }
+      .section-title {
+        font-size: 15px;
+      }
+    }
+    .zone-section {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .zone-title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    .zone-name {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 20px 0 10px;
+      color: #D35400;
+    }
+    .zone-price {
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .zone-includes {
+      margin-left: 20px;
+    }
+    .zone-includes li {
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="venue-container">
+    <!-- Stage at the top -->
+    <div class="stage">STAGE</div>
+
+    <!-- Master Blaster Section -->
+    <div class="section master-blaster">
+      <div class="section-title">
+        Master Blaster Circle<br>
+        <small>$5,000 | 1 Table | 10 Seats</small>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">1</div>
+      </div>
+    </div>
+    <!-- Zone 1 Description -->
+    <div class="zone-section">
+      <div class="zone-price" style="color:red;font-weight:700;">Master Blaster - $5,000</div>
+      <div class="zone-includes">
+        <ul>
+          <li>1 Premier Seat at Mr. Sunil Gavaskar's Table</li>
+          <li>Name Recognition at the Event</li>
+          <li>Autographed H2H Cricket Bat</li>
+          <li>(*Outside bats, balls, or other articles are NOT ALLOWED)</li>
+          <li>Photo Opportunity with Mr. Gavaskar</li>
+          <li>Access to view the Fireside Chat with Mr. Sunil Gavaskar</li>
+          <li>Gourmet Meal</li>
+        </ul>
+        <p>*Note: Your Contributions Go Towards Supporting Children's Heart Surgeries</p>
+      </div>
+    </div>
+
+    <!-- Century Club Section -->
+    <div class="section century-club">
+      <div class="section-title">
+        Century Club<br>
+        <small>$2,000 | 4 Tables | 40 Seats</small>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">2</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">3</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">4</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">5</div>
+      </div>
+    </div>
+    <!-- Zone 2 Description -->
+    <div class="zone-section">
+      <div class="zone-price" style="color:red;font-weight:700;">Century Club - $2,000</div>
+      <div class="zone-includes">
+        <ul>
+          <li>2 VIP Seats</li>
+          <li>Autographed H2H Cricket Bat</li>
+          <li>(*Outside bats, balls, or other articles are NOT ALLOWED)</li>
+          <li>Photo Opportunity with Mr. Gavaskar</li>
+          <li>Access to view the Fireside Chat with Mr. Sunil Gavaskar</li>
+          <li>Gourmet Meal (Cash Bar)</li>
+        </ul>
+        <p>*Note: Your Contributions Go Towards Supporting Children's Heart Surgeries</p>
+      </div>
+    </div>
+
+    <!-- Power Play Section -->
+    <div class="section power-play">
+      <div class="section-title">
+        Power Play Supporter<br>
+        <small>$500 | 8 Tables | 80 Seats</small>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">6</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">7</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">8</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">9</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">10</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">11</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">12</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">13</div>
+      </div>
+    </div>
+    <!-- Zone 3 Description -->
+    <div class="zone-section">
+      <div class="zone-price" style="color:red;font-weight:700;">Power Play Supporter - $500</div>
+      <div class="zone-includes">
+        <ul>
+          <li>1 Reserved Seat (ahead of general seating)</li>
+          <li>Photo Opportunity with Mr. Gavaskar</li>
+          <li>Access to view the Fireside Chat with Mr. Sunil Gavaskar</li>
+          <li>Gourmet Meal (Cash Bar)</li>
+        </ul>
+        <p>*Note: Your Contributions Go Towards Supporting Children's Heart Surgeries</p>
+      </div>
+    </div>
+
+    <!-- All Rounder Section -->
+    <div class="section all-rounder">
+      <div class="section-title">
+        All Rounder Access<br>
+        <small>$200 | 10 Tables | 100 Seats</small>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">14</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">15</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">16</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">17</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">18</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">19</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">20</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">21</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">22</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">23</div>
+      </div>
+    </div>
+    <!-- Zone 4 Description -->
+    <div class="zone-section">
+      <div class="zone-price" style="color:red;font-weight:700;">All Rounder Access - $200</div>
+      <div class="zone-includes">
+        <ul>
+          <li>1 Reserved Seat (ahead of general seating)</li>
+          <li>Access to view the Fireside Chat with Mr. Sunil Gavaskar</li>
+          <li>Gourmet Meal (Cash Bar)</li>
+        </ul>
+        <p>*Note: Your Contributions Go Towards Supporting Children's Heart Surgeries</p>
+      </div>
+    </div>
+
+    <!-- Cricket Fan Pass Section -->
+    <div class="section fan-pass">
+      <div class="section-title">
+        Cricket Fan Pass<br>
+        <small>$100 | 12 Tables | 120 Seats</small>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">24</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">25</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">26</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">27</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">28</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">29</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">30</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">31</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">32</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">33</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">34</div>
+      </div>
+      <div class="table-container">
+        <div class="table"></div>
+        <div class="table-number">35</div>
+      </div>
+    </div>
+    <!-- Zone 5 Description -->
+    <div class="zone-section">
+      <div class="zone-price" style="color:red;font-weight:700;">Cricket Fan Pass - $100</div>
+      <div class="zone-includes">
+        <ul>
+          <li>1 General Seat</li>
+          <li>Access to view the Fireside Chat with Mr. Sunil Gavaskar</li>
+          <li>Gourmet Meal (Cash Bar)</li>
+        </ul>
+        <p>*Note: Your Contributions Go Towards Supporting Children's Heart Surgeries</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

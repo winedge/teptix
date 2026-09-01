@@ -1,0 +1,25 @@
+{
+  "event_id": 53,
+  "ticket_id": 144,
+  "quantity": 1,
+  "coupon_discount": 0.0,
+  "payment": 0,
+  "payment_type": "FREE",
+  "venue_seat_ids": [
+    320
+  ],
+  "seat_details": [
+    {
+      "id": 320,
+      "label": "Left Section K-13 - Available"
+    }
+  ],
+  "ticket_date": "2026-07-16",
+  "guest_first_name": "vrushabh",
+  "guest_last_name": "bhanarkar",
+  "guest_email": "vrushabh@accentrixai.com",
+  "guest_phone": "8446240546",
+  "verification_token": "2133a467348bbcb30bceedf97fa64960691fe0d84d810898391032bebef730d5",
+  "tax": 0
+}
+

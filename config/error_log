@@ -1,0 +1,4 @@
+[18-Jan-2025 02:26:56 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function env() in /home/yawiszxr/teptix.com/config/database.php:18
+Stack trace:
+#0 {main}
+  thrown in /home/yawiszxr/teptix.com/config/database.php on line 18
