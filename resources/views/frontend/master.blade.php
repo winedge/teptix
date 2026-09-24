@@ -9,8 +9,8 @@
     <link href="{{ $favicon ? url('images/upload/' . $favicon) : asset('images/logo.png') }}" rel="icon"
         type="image/png">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta name="description" content="Experience the biggest Holi festival in Arizona at Holi Dhoom 2025! Celebrate with vibrant colors, music, dance, delicious food, and non-stop fun. Join us for an unforgettable day!">
     @if (!Route::current('eventDetail'))
+    <meta name="description" content="Book tickets or host your own events with TEPTIX - discover concerts, workshops, and experiences near you, or list your event and start selling tickets in minutes.">
     <title>{{ \App\Models\Setting::find(1)->app_name }} | @yield('title')</title>
     @endif
     <meta name="csrf-token" content="{{ csrf_token() }}">

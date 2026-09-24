@@ -20,7 +20,7 @@ if ($order && $order->tickets()) {
     @endphp
     <div class="ticket emailticket{{$orderId}}" id="emailticket" style="width: fit-content">
         <div class="left-section">
-            <img src="{{$setting->imagePath . $ticket->event->image}}" alt="Event Image" crossOrigin="anonymous">
+            <img src="{{$setting->imagePath . $ticket->event->image}}" alt="Event Image" crossOrigin="anonymous" style="border-radius: 8px; width: 100%; max-width: 120px; max-height: 120px; object-fit: contain; height: auto; margin-bottom: 20px;">
             <span style="font-weight:900">{{ __('Organizer:') }}</span><span>{{ $ticket->organization->first_name . ' ' . $ticket->organization->last_name }}</span>
             <span style="font-weight:900">{{ __('Payment method:') }}</span><span>
                 @if ($allTicketsFree || $ticket->payment_type == 'FREE' || $ticket->tax_option == 'complimentary')

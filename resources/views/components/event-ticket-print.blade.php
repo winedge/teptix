@@ -44,6 +44,8 @@
         border-radius: 8px;
         width: 100%;
         max-width: 120px;
+        max-height: 120px;
+        object-fit: contain;
         height: auto;
         margin-bottom: 20px;
     }

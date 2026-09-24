@@ -129,13 +129,9 @@ class FrontendController extends Controller
             $events  = Event::with(['category:id,name'])
                 ->where([['status', 1], ['is_deleted', 0], ['event_status', 'Pending'], ['end_time', '>', $date->format('Y-m-d H:i:s')]])
                 ->orderBy('start_time', 'desc')->get();
-            $now = Carbon::now();
 
             $pastevents  = Event::with(['category:id,name'])
-                ->where('status', 1)
-                ->where('is_deleted', 0)
-                ->where('event_status', 'Pending')
-                ->where('end_time', '<=', $now)
+                ->where([['status', 1], ['is_deleted', 0], ['event_status', 'Pending'], ['end_time', '<=', $date->format('Y-m-d H:i:s')]])
                 ->orderBy('start_time', 'desc')
                 ->get();
             $organizer = User::role('Organizer')->orderBy('id', 'DESC')->get();
@@ -146,6 +142,11 @@ class FrontendController extends Controller
                 ->pluck('total', 'category_id');
             $blog = Blog::with(['category:id,name'])->where('status', 1)->orderBy('id', 'DESC')->get();
             foreach ($events as $value) {
+                $value->total_ticket = Ticket::where([['event_id', $value->id], ['is_deleted', 0], ['status', 1]])->sum('quantity');
+                $value->sold_ticket = Order::where('event_id', $value->id)->sum('quantity');
+                $value->available_ticket = $value->total_ticket - $value->sold_ticket;
+            }
+            foreach ($pastevents as $value) {
                 $value->total_ticket = Ticket::where([['event_id', $value->id], ['is_deleted', 0], ['status', 1]])->sum('quantity');
                 $value->sold_ticket = Order::where('event_id', $value->id)->sum('quantity');
                 $value->available_ticket = $value->total_ticket - $value->sold_ticket;
@@ -818,7 +819,7 @@ class FrontendController extends Controller
 
         // Check if showing past events
         if ($request->has('event_type') && $request->event_type == 'past') {
-            $events  = Event::with(['category:id,name'])->where([['status', 1], ['is_deleted', 0], ['end_time', '<', $date->format('Y-m-d H:i:s')]]);
+            $events  = Event::with(['category:id,name'])->where([['status', 1], ['is_deleted', 0], ['end_time', '<=', $date->format('Y-m-d H:i:s')]]);
         } else {
             $events  = Event::with(['category:id,name'])->where([['status', 1], ['is_deleted', 0], ['event_status', 'Pending'], ['end_time', '>', $date->format('Y-m-d H:i:s')]]);
         }
@@ -862,7 +863,11 @@ class FrontendController extends Controller
                 }
             }
         }
-        $events = $events->orderBy('start_time', 'ASC')->get();
+        if ($request->has('event_type') && $request->event_type == 'past') {
+            $events = $events->orderBy('start_time', 'DESC')->get();
+        } else {
+            $events = $events->orderBy('start_time', 'ASC')->get();
+        }
         foreach ($events as $value) {
             $value->total_ticket = Ticket::where([['event_id', $value->id], ['is_deleted', 0], ['status', 1]])->sum('quantity');
             $value->sold_ticket = Order::where('event_id', $value->id)->sum('quantity');
@@ -894,54 +899,55 @@ class FrontendController extends Controller
             abort(404, 'Event not found');
         }
 
+        // Meta/description text must be plain (rich-text editor output is raw HTML)
+        $plainDescription = Str::limit(trim(strip_tags((string) $data->description)), 160);
+
+        $eventKeywords = collect([
+                $setting->app_name,
+                $data->name,
+                $data->category?->name,
+                $data->tags,
+                $data->address,
+            ])
+            ->flatMap(fn ($k) => is_string($k) ? explode(',', $k) : [$k])
+            ->map(fn ($k) => is_string($k) ? trim($k) : $k)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
         SEOMeta::setTitle($data->name)
-            ->setDescription($data->description);
+            ->setDescription($plainDescription);
 
         // Only add category meta if category exists
         if ($data->category) {
             SEOMeta::addMeta('event:category', $data->category->name, 'property');
         }
 
-        SEOMeta::addKeyword([
-                $setting->app_name,
-                $data->name,
-                $setting->app_name . ' - ' . $data->name,
-                $data->category?->name,
-                $data->tags
-            ]);
+        SEOMeta::addKeyword($eventKeywords);
 
         OpenGraph::setTitle($data->name)
-            ->setDescription($data->description)
+            ->setDescription($plainDescription)
             ->setUrl(url()->current())
             ->addImage($data->imagePath . $data->image)
             ->setArticle([
                 'start_time' => $data->start_time,
                 'end_time' => $data->end_time,
                 'organization' => $data->organization?->name,
-                'catrgory' => $data->category?->name,
+                'category' => $data->category?->name,
                 'type' => $data->type,
                 'address' => $data->address,
                 'tag' => $data->tags,
             ]);
 
-        JsonLd::setTitle($data->name)
-            ->setDescription($data->description)
-            ->setType('Article')
-            ->addImage($data->imagePath . $data->image);
-
+        // Note: no separate JsonLd::/SEOTools::jsonLd() calls here - the event detail
+        // view emits one comprehensive Event schema block itself (name, dates, location,
+        // offers, organizer). Setting a second, thinner Event schema via this package
+        // would just duplicate/conflict with it in the page's structured data.
         SEOTools::setTitle($data->name);
-        SEOTools::setDescription($data->description);
+        SEOTools::setDescription($plainDescription);
         SEOTools::opengraph()->setUrl(url()->current());
         SEOTools::setCanonical(url()->current());
-        SEOTools::opengraph()->addProperty('keywords', [
-            $setting->app_name,
-            $data->name,
-            $setting->app_name . ' - ' . $data->name,
-            $data->category?->name,
-            $data->tags
-        ]);
-        SEOTools::jsonLd()->addImage($setting->imagePath . $setting->logo);
-        SEOTools::jsonLd()->addImage($data->imagePath . $data->image);
         $timezone = Setting::find(1)->timezone;
         $date = Carbon::now($timezone);
         // Include tickets even if sales ended so the view can render a "Sales End" label

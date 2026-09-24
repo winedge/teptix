@@ -175,6 +175,8 @@
                 background-size: contain !important;
                 background-repeat: no-repeat !important;
                 background-position: center !important;
+                background-color: #0d0d12;
+                border-radius: 8px;
                 width: 100%;
                 height: auto;
                 aspect-ratio: 16 / 9;
@@ -195,7 +197,7 @@
                      <div class="card-body">
                         <div class="row">
                             <div class="col-12 mb-3">
-                                <div class="event-img " style="background: url({{url('images/upload/'.$event->image)}})">
+                                <div class="event-img " style="background: url({{url('images/upload/'.$event->thumbnail)}})">
                                 </div>
                             </div>
                             <div class="col-12 event-description">

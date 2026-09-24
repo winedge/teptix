@@ -20,6 +20,7 @@ class Event extends Model
         'event_logo',
         'event_logos',
         'image',
+        'thumbnail',
         'image_2',
         'gallery',
         'people',
