@@ -115,6 +115,48 @@ class TicketVerificationController extends Controller
 
         $currency = Setting::find(1)->synbol ?? 'USD';
 
+        $childSeatDetails = null;
+        if (!empty($child->event_venue_seat_id)) {
+            $venueSeat = \App\Models\EventVenueSeat::find($child->event_venue_seat_id);
+            if ($venueSeat) {
+                $childSeatDetails = [[
+                    'id' => (string) $venueSeat->id,
+                    'label' => $venueSeat->seat_label ?: trim(($venueSeat->section_name ?? '') . ' ' . ($venueSeat->row_name ?? '') . '-' . ($venueSeat->seat_number ?? '')),
+                    'section' => $venueSeat->section_name ?? '',
+                    'row' => $venueSeat->row_name ?? '',
+                    'seat_number' => (string) ($venueSeat->seat_number ?? ''),
+                    'ticket_id' => (string) ($venueSeat->ticket_id ?? $child->ticket_id ?? ''),
+                ]];
+            }
+        }
+
+        if (!$childSeatDetails && !empty($child->Book_Seat_Id)) {
+            $rawSeats = $order->seat_details;
+            if (is_string($rawSeats)) {
+                $rawSeats = json_decode(html_entity_decode($rawSeats, ENT_QUOTES | ENT_HTML5, 'UTF-8'), true);
+            }
+            if (is_array($rawSeats)) {
+                foreach ($rawSeats as $s) {
+                    if (is_array($s) && (($s['label'] ?? null) === $child->Book_Seat_Id || ($s['seat_label'] ?? null) === $child->Book_Seat_Id)) {
+                        $childSeatDetails = [$s];
+                        break;
+                    }
+                }
+            }
+            if (!$childSeatDetails) {
+                $childSeatDetails = [[
+                    'id' => (string) $child->Book_Seat_Id,
+                    'label' => (string) $child->Book_Seat_Id,
+                    'section' => 'Reserved',
+                    'row' => '',
+                    'seat_number' => (string) $child->Book_Seat_Id,
+                    'ticket_id' => (string) $child->ticket_id,
+                ]];
+            }
+        }
+
+        $resolvedBookSeatId = !empty($child->Book_Seat_Id) ? $child->Book_Seat_Id : (!empty($childSeatDetails) ? $childSeatDetails[0]['label'] : null);
+
         $data = [
             'payment_type' => $child->paid == 1 ? "STRIPE" : $order->payment_type,
             'amount' => $order->payment,
@@ -123,9 +165,9 @@ class TicketVerificationController extends Controller
             'event_name' => $event->name ?? 'Unknown Event',
             'ticket_number' => $child->ticket_number,
             'ticket_title' => $ticket->ticket_title ?? 'General',
-            'seat_details'=> json_decode(json_encode($order->seat_details)),
-            'Book_Seat_Id'=>$child->Book_Seat_Id,
-            'qr_code'        => base64_encode(QrCode::format('png')->size(150)->generate($child->ticket_number)),
+            'seat_details' => $childSeatDetails,
+            'Book_Seat_Id' => $resolvedBookSeatId,
+            'qr_code' => base64_encode(QrCode::format('png')->size(150)->generate($child->ticket_number)),
         ];
 
         if ((int) $order->payment_status !== 1) {

@@ -475,7 +475,7 @@
                             <h5 class="mb-0 font-weight-bold text-dark">
                                 <i class="fas fa-history text-red-primary mr-2"></i> {{ __('Activity') }}
                             </h5>
-                            <a href="{{ route('admin.activity.index') }}" class="btn btn-sm btn-outline-danger btn-red text-white px-3">{{ __('See all') }}</a>
+                            <a href="{{ route('admin.activity.index') }}" class="btn btn-sm btn-outline-danger btn-red text-white px-3">{{ __('See all') }} <i class="fas fa-arrow-right ml-1" style="font-size: 10px;"></i></a>
                         </div>
                         <div class="card-body p-3">
                             @if (isset($latestActivityLogs) && $latestActivityLogs->count())

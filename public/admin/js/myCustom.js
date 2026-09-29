@@ -797,23 +797,8 @@ $(document).ready(function () {
 
         }
     });
-    $('#org-for-event').change(function () {
-        $.ajax({
-            type: "GET",
-            url: base_url + '/getScanner/' + $(this).val(),
-            success: function (result) {
-                $('.scanner_id').html('<option value="">Choose Scanner</option>');
-                if (result.data.length > 0) {
-                    result.data.forEach(e => {
-                        $('.scanner_id').append('<option value="' + e.id + '">' + e.first_name + ' ' + e.last_name + '</option>');
-                    });
-                }
-            },
-            error: function (err) {
-                console.log('err ', err)
-            }
-        });
-    });
+
+    // Scanner dropdown update is handled in event create/edit views with multi-organizer support
     $("#role").change(function (e) {
         var vals = $(this).val();
         vals = JSON.stringify(vals);
@@ -993,6 +978,16 @@ $(document).ready(function () {
         input_field: "#image-upload",
         preview_box: "#image-preview",
         label_field: "#image-label",
+        label_default: "<i class='fas fa-plus'></i>",
+        label_selected: "<i class='fas fa-plus'></i>",
+        no_label: false,
+        success_callback: null
+    });
+
+    $.uploadPreview({
+        input_field: "#thumbnail-upload",
+        preview_box: "#thumbnail-preview",
+        label_field: "#thumbnail-label",
         label_default: "<i class='fas fa-plus'></i>",
         label_selected: "<i class='fas fa-plus'></i>",
         no_label: false,

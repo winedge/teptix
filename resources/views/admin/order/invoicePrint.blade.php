@@ -805,7 +805,7 @@
                                 @endphp
                                     <div class="ticket" id="ticket" style="display: flex; flex-direction: row; background: white; border: 2px solid #f55a8c; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); max-width: 800px; width: 100%;">
                                         <div class="left-section" style="background: linear-gradient(135deg, #4a154b, #ec407a); color: white; text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px;">
-                                            <img src="{{$setting->imagePath . $ticket->event->image}}" alt="Event Image" crossOrigin="anonymous" style="border-radius: 8px; width: 100%; max-width: 120px; height: auto; margin-bottom: 20px;">
+                                            <img src="{{$setting->imagePath . $ticket->event->image}}" alt="Event Image" crossOrigin="anonymous" style="border-radius: 8px; width: 100%; max-width: 120px; max-height: 120px; object-fit: contain; height: auto; margin-bottom: 20px;">
                                             <span>{{ __('Organizer:') }} {{ $ticket->organization->first_name . ' ' . $ticket->organization->last_name }}</span>
                                             <span>{{ __('Payment method:') }} {{ $ticket->payment_type == 'LOCAL' ? 'Offline' : $ticket->payment_type }}</span>
                                         </div>

@@ -225,45 +225,66 @@
         return (int) ($ticket->available_qty ?? 0) <= 0;
     });
 @endphp
+@php
+    $seoTicketPrices = collect($data->all_ticket ?? [])
+        ->where('type', 'paid')
+        ->pluck('price')
+        ->filter(fn ($p) => is_numeric($p))
+        ->map(fn ($p) => (float) $p);
+    $seoLowestPrice = $seoTicketPrices->count() ? $seoTicketPrices->min() : 0;
+    $seoAvailability = ($allTicketsSoldOut ?? false) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock';
+    $seoOrganizerName = (isset($organizations) && $organizations->count() > 0)
+        ? $organizations->first()->organization_name
+        : (\App\Models\Setting::find(1)->app_name ?? 'TEPTIX');
+    $seoDescription = Str::limit(trim(strip_tags((string) $data->description)), 300);
+@endphp
 <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Event",
-      "name": "Holi Dhoom 2025: The Color of Life Arizona",
-      "startDate": "2025-03-15T11:00+00:00",
-      "endDate": "2025-03-15T16:00+00:00",
-      "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-      "eventStatus": "https://schema.org/EventScheduled",
-      "location": {
-        "@type": "Place",
-        "name": "Rawhide Western Town & Event Center",
-        "address": {
-          "@type": "PostalAddress",
-          "streetAddress": "5700 W North Loop Rd",
-          "addressLocality": "Chandler",
-          "postalCode": "85226",
-          "addressRegion": "AZ",
-          "addressCountry": "US"
-        }
-      },
-      "image": [
-        "https://teptix.com/images/upload/678a87a07099a.gif"
-      ],
-      "description": "Arizona's premier color dance festival is back! Celebrate Holi Dhoom 2025 with vibrant colors, fun, music, and delicious food. Presented by The Event Palette & AZ Goshala. Don't miss out on the most exciting cultural event of the year!",
-      "offers": {
-        "@type": "Offer",
-        "url": "https://teptix.com/event/3/holi-dhoom-2025-arizona-ftdj-akhil-talreja",
-        "price": "20",
-        "priceCurrency": "USD",
-        "availability": "https://schema.org/InStock",
-        "validFrom": "2025-03-15T11:00+00:00"
-      },
-      "organizer": {
-        "@type": "Organization",
-        "name": "The Event Palette & AZ Goshala",
-        "url": "https://teptix.com"
-      }
+{
+  "@context": "https://schema.org",
+  "@type": "Event",
+  "name": {!! json_encode($data->name) !!},
+  "startDate": "{{ Carbon\Carbon::parse($data->start_time)->format('Y-m-d\TH:iP') }}",
+  "endDate": "{{ Carbon\Carbon::parse($data->end_time)->format('Y-m-d\TH:iP') }}",
+  "eventAttendanceMode": "https://schema.org/{{ $data->type === 'online' ? 'OnlineEventAttendanceMode' : 'OfflineEventAttendanceMode' }}",
+  "eventStatus": "https://schema.org/EventScheduled",
+  @if($data->type === 'online')
+  "location": {
+    "@type": "VirtualLocation",
+    "url": {!! json_encode($data->url ?: url()->current()) !!}
+  },
+  @else
+  "location": {
+    "@type": "Place",
+    "name": {!! json_encode($data->address) !!},
+    "address": {!! json_encode($data->address) !!}
+    @if($data->lat && $data->lang)
+    ,
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": {{ $data->lat }},
+      "longitude": {{ $data->lang }}
     }
+    @endif
+  },
+  @endif
+  "image": [
+    "{{ url('images/upload/' . $data->image) }}"
+  ],
+  "description": {!! json_encode($seoDescription) !!},
+  "offers": {
+    "@type": "Offer",
+    "url": "{{ url()->current() }}",
+    "price": "{{ $seoLowestPrice }}",
+    "priceCurrency": "USD",
+    "availability": "{{ $seoAvailability }}",
+    "validFrom": "{{ Carbon\Carbon::parse($data->start_time)->format('Y-m-d\TH:iP') }}"
+  },
+  "organizer": {
+    "@type": "Organization",
+    "name": {!! json_encode($seoOrganizerName) !!},
+    "url": "{{ url('/') }}"
+  }
+}
 </script>
 <!-- Swiper CSS -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css" />
@@ -271,51 +292,6 @@
 <!-- Swiper JS -->
 <script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
 
-
-    {{-- <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Event",
-      "name": "{{ $data->name }}",
-      "startDate": "{{ Carbon\Carbon::parse($data->start_time)->format('Y-m-d\TH:iP') }}",
-      "endDate": "{{ Carbon\Carbon::parse($data->end_time)->format('Y-m-d\TH:iP') }}",
-      "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-      "eventStatus": "https://schema.org/EventScheduled",
-      "location": {
-        "@type": "Place",
-        "name": "Arizona State University Polytechnic Campus",
-        "address": {
-          "@type": "PostalAddress",
-          "streetAddress": "7001 E Williams Field Rd",
-          "addressLocality": "Mesa",
-          "postalCode": "85212",
-          "addressRegion": "AZ",
-          "addressCountry": "US"
-        }
-      },
-      "image": [
-        "{{ url('images/upload/' . $data->image) }}"
-       ],
-      "description": "Holi Dhoom 2024: Mesa's Ultimate Color Blast Experience the vibrant celebration with Arizona's top DJ Isaac, delicious Indian cuisine, and a rainbow of colors. Presented by The Event Palette & Goshala, sponsored by Jio Supply. Don't miss out on the season's most awaited cultural fest!",
-      "offers": {
-        "@type": "Offer",
-        "url": "https://teptix.com/events/3",
-        "price": "15",
-        "priceCurrency": "USD",
-        "availability": "https://schema.org/InStock",
-        "validFrom": "{{ Carbon\Carbon::parse($data->start_time)->format('Y-m-d\TH:iP') }}"
-      },
-      "performer": {
-        "@type": "PerformingGroup",
-        "name": "DJ Akhthar & DJ Isaac"
-      },
-      "organizer": {
-        "@type": "Organization",
-        "name": "The Event Palette & AZ Goshala",
-        "url": "https://teptix.com/"
-      }
-    }
-</script> --}}
     <style>
     .btn1 {
   outline: 0;
@@ -466,10 +442,25 @@
     .event-page-wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; display: flex; flex-direction: column; }
 
     /* ---- Hero: dark, poster + info ---- */
-    .event-hero-v2 { background: #0d0d12; padding: 32px 0 64px; }
+    .event-hero-v2 { background: linear-gradient(135deg, #0d0d12 0%, #2b1215 55%, #4a161b 100%); padding: 32px 0 64px; }
     .event-hero-inner { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; align-items: center; }
-    .event-hero-poster { border-radius: 14px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.08); }
-    .event-hero-poster img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 4; object-fit: cover; }
+    .event-hero-poster {
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 70px 6px rgba(220,38,38,0.35), 0 0 130px 30px rgba(220,38,38,0.18);
+        border: 1px solid rgba(255,255,255,0.08);
+        background: #14161f;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .event-hero-poster img {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 380px;
+        object-fit: contain;
+    }
     .event-hero-badge { display: inline-block; background: var(--ed-accent); color: #ffffff; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 12px; padding: 6px 14px; border-radius: 6px; margin-bottom: 14px; }
     .event-hero-title { color: #ffffff; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(24px, 3vw, 36px); line-height: 1.25; margin: 0 0 14px; }
     .event-hero-desc { color: rgba(255,255,255,0.72); font-size: 15px; line-height: 1.6; margin: 0 0 22px; max-width: 640px; }
@@ -488,8 +479,10 @@
 
     @media (max-width: 768px) {
         .event-hero-inner { grid-template-columns: 1fr; }
-        .event-hero-poster { max-width: 220px; margin: 0 auto; }
+        .event-hero-poster { max-width: 280px; margin: 0 auto; }
+        .event-hero-badge { display: block; width: fit-content; margin-left: auto; margin-right: auto; }
         .event-hero-title, .event-hero-desc, .event-hero-meta, .event-hero-actions { text-align: center; }
+        .event-hero-title { font-size: clamp(15px, 5.6vw, 22px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .event-hero-meta { justify-content: center; }
         .event-hero-actions { justify-content: center; }
     }
@@ -536,7 +529,7 @@
         border-radius: 8px; border: 1.5px solid #cbd5e1; background: #ffffff; color: #334155; cursor: pointer;
         transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
     }
-    .ticket-select-btn:hover:not(:disabled) { border-color: var(--ed-accent); color: var(--ed-accent); }
+    .ticket-select-btn:hover:not(:disabled):not(.is-active) { border-color: var(--ed-accent); color: var(--ed-accent); }
     .ticket-select-btn.is-active { background: var(--ed-accent); border-color: var(--ed-accent); color: #ffffff; }
     .ticket-select-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -554,8 +547,6 @@
     .tickets-summary-list { display: none; flex-direction: column; gap: 8px; margin-bottom: 12px; }
     .tickets-summary-row { display: flex; justify-content: space-between; font-size: 13px; color: #334155; }
     .tickets-summary-row span:last-child { font-weight: 600; color: #0f172a; }
-    .tickets-summary-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 14px; border-top: 1px solid #f1f5f9; margin-top: 4px; }
-    .tickets-summary-total strong { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 20px; color: #0f172a; }
 
     #form_book { border-radius: 10px !important; letter-spacing: 0.2px; margin-top: 14px; transition: transform 0.1s ease, box-shadow 0.15s ease; }
     #form_book:not(:disabled):hover { box-shadow: 0 6px 16px rgba(220, 38, 38, 0.25); }
@@ -564,6 +555,16 @@
     @media (max-width: 1024px) {
         .tickets-section { grid-template-columns: 1fr; margin-top: -28px; }
         .tickets-summary-card { position: static; }
+    }
+
+    @media (max-width: 520px) {
+        .ticket-row { gap: 8px; padding: 12px; }
+        .ticket-row-name { font-size: 13.5px; }
+        .ticket-row-desc { display: none; }
+        .ticket-row-price { padding: 0; }
+        .ticket-row-price strong { font-size: 13.5px; }
+        .ticket-row-price span { display: none; }
+        .ticket-select-btn { padding: 8px 14px; font-size: 12.5px; }
     }
 
     /* ---- Info cards row + venue/organizer row ---- */
@@ -710,10 +711,7 @@
                         <i class="fa fa-map-marker" aria-hidden="true"></i>
                         <span>{{ $data->type == 'online' ? __('Online Event') : $data->address }}</span>
                     </div>
-                    <div class="event-hero-meta-item">
-                        <i class="fa fa-users" aria-hidden="true"></i>
-                        <span>{{ $data->people }} {{ __('Seats Left') }}</span>
-                    </div>
+                    
                 </div>
                 <div class="event-hero-actions">
                     <a href="#tickets" class="event-hero-btn-primary">
@@ -1444,19 +1442,11 @@
                                            data-ticket-price="{{ $item->type === 'paid' ? number_format((float) $item->price, 2) : '0.00' }}"
                                            data-ticket-price-label="{{ $item->type === 'paid' ? ($currency->currency_sybmol ?? '$') . number_format($item->price, 2) : __('Free') }}"
                                            onchange="handleTicketSelection(this, {{$item->id}}, {{$item->SeatTable_id ? 'true' : 'false'}}); syncTicketRowStepper({{ $item->id }});" {{ $isSaleEnded || (int) ($item->available_qty ?? 0) <= 0 ? 'disabled' : '' }}>
-                                    @if(!empty($liveVenueMap) && $venueSeatMapSeats->count() > 0)
-                                        <button type="button" class="ticket-select-btn" id="ticket-select-btn-{{ $item->id }}"
-                                                onclick="toggleTicketSelect({{ $item->id }})"
-                                                {{ $isSaleEnded || (int) ($item->available_qty ?? 0) <= 0 ? 'disabled' : '' }}>
-                                            {{ __('Select') }}
-                                        </button>
-                                    @else
-                                        <div class="ticket-stepper">
-                                            <button type="button" aria-label="{{ __('Remove ticket') }}" onclick="adjustTicketStepper({{ $item->id }}, -1)">&minus;</button>
-                                            <span class="ticket-qty-value" id="ticket-qty-{{ $item->id }}">0</span>
-                                            <button type="button" aria-label="{{ __('Add ticket') }}" onclick="adjustTicketStepper({{ $item->id }}, 1)" {{ $isSaleEnded || (int) ($item->available_qty ?? 0) <= 0 ? 'disabled' : '' }}>+</button>
-                                        </div>
-                                    @endif
+                                    <button type="button" class="ticket-select-btn" id="ticket-select-btn-{{ $item->id }}"
+                                            onclick="toggleTicketSelect({{ $item->id }})"
+                                            {{ $isSaleEnded || (int) ($item->available_qty ?? 0) <= 0 ? 'disabled' : '' }}>
+                                        {{ __('Select') }}
+                                    </button>
                                 @endif
                             </div>
                         </div>
@@ -1493,10 +1483,6 @@
                         <p>{{ __('Select your tickets to see the summary here.') }}</p>
                     </div>
                     <div class="tickets-summary-list" id="ticketsSummaryList"></div>
-                    <div class="tickets-summary-total" id="ticketsSummaryTotal" style="display:none;">
-                        <span>{{ __('Total') }}</span>
-                        <strong id="ticketsSummaryTotalValue">{{ $currency->currency_sybmol ?? '$' }}0.00</strong>
-                    </div>
                     <button type="submit" id="form_book"
                         class="font-poppins font-medium text-lg ml-1 leading-6 text-white w-full rounded-md py-3 {{ $allTicketsSoldOut ? 'cursor-not-allowed no-cursor' : 'bg-primary' }}"
                         style="{{ $allTicketsSoldOut ? 'background-color:#9ca3af;' : '' }}"
@@ -1716,6 +1702,11 @@
 
                     if (availableOptions.length === 0) {
                         checkbox.checked = false;
+                        checkbox.dataset.selectedQty = '0';
+                        const qtySelect = document.getElementById('ticket-qty-select-' + ticketId);
+                        if (qtySelect) qtySelect.value = '0';
+                        const row = document.getElementById('ticket-row-' + ticketId);
+                        if (row) row.classList.remove('is-selected');
                         if (seatUnavailableWarning) {
                             seatUnavailableWarning.style.display = 'block';
                         }
@@ -1738,6 +1729,11 @@
                         const selectedOption = seatSelect.options[seatSelect.selectedIndex];
                         if (selectedOption && selectedOption.disabled) {
                             checkbox.checked = false;
+                            checkbox.dataset.selectedQty = '0';
+                            const qtySelect = document.getElementById('ticket-qty-select-' + ticketId);
+                            if (qtySelect) qtySelect.value = '0';
+                            const row = document.getElementById('ticket-row-' + ticketId);
+                            if (row) row.classList.remove('is-selected');
                             if (seatUnavailableWarning) {
                                 seatUnavailableWarning.style.display = 'block';
                             }
@@ -1757,6 +1753,11 @@
                     }
                 }
             } else {
+                checkbox.dataset.selectedQty = '0';
+                const qtySelect = document.getElementById('ticket-qty-select-' + ticketId);
+                if (qtySelect) qtySelect.value = '0';
+                const row = document.getElementById('ticket-row-' + ticketId);
+                if (row) row.classList.remove('is-selected');
                 // Remove seat data when unchecked
                 removeSeatDataFromForm(ticketId);
                 // Hide warnings when unchecked
@@ -1789,6 +1790,11 @@
                     }
                     if (checkbox && checkbox.checked) {
                         checkbox.checked = false;
+                        checkbox.dataset.selectedQty = '0';
+                        const qtySelect = document.getElementById('ticket-qty-select-' + ticketId);
+                        if (qtySelect) qtySelect.value = '0';
+                        const row = document.getElementById('ticket-row-' + ticketId);
+                        if (row) row.classList.remove('is-selected');
                         removeSeatDataFromForm(ticketId);
                         updateButtonState();
                     }
@@ -1904,7 +1910,8 @@
 
             const selectedTickets = document.querySelectorAll('input[name="multitickets[]"]:checked');
             const selectedAvailableTickets = Array.from(selectedTickets).filter(function (ticket) {
-                return parseInt(ticket.dataset.availableQty || 0, 10) > 0 && !ticket.disabled;
+                const qty = parseInt(ticket.dataset.selectedQty || (ticket.checked ? '1' : '0'), 10);
+                return qty > 0 && parseInt(ticket.dataset.availableQty || 0, 10) > 0 && !ticket.disabled;
             });
             if (hasVenueSeatMap && !venueSeatStepActive) {
                 if (selectedAvailableTickets.length === 0) {
@@ -1922,7 +1929,7 @@
             }
 
             // Check if any tickets are selected
-            if (selectedTickets.length === 0) {
+            if (selectedTickets.length === 0 || selectedAvailableTickets.length === 0) {
                 alert('{{ __("Please select at least one ticket.") }}');
                 return false;
             }
@@ -1954,7 +1961,12 @@
 
             selectedTickets.forEach(checkbox => {
                 const ticketId = checkbox.value;
-                multitickets.push(ticketId);
+                const qty = parseInt(checkbox.dataset.selectedQty || '1', 10) || 1;
+                if (qty <= 0) return;
+
+                for (let i = 0; i < qty; i++) {
+                    multitickets.push(ticketId);
+                }
 
                 const seatSelect = document.getElementById('seat-select-' + ticketId);
                 if (seatSelect && seatSelect.value) {
@@ -2100,6 +2112,25 @@
                     }
                 });
 
+                // Ensure multitickets are added according to selected quantity in fallback form submit
+                selectedTickets.forEach(checkbox => {
+                    const ticketId = checkbox.value;
+                    const qty = parseInt(checkbox.dataset.selectedQty || '1', 10) || 1;
+                    if (qty <= 0) return;
+                    for (let i = 0; i < qty; i++) {
+                        const ticketInput = document.createElement('input');
+                        ticketInput.type = 'hidden';
+                        ticketInput.name = 'multitickets[]';
+                        ticketInput.value = ticketId;
+                        seatDataContainer.appendChild(ticketInput);
+                    }
+                });
+
+                // Disable original hidden checkboxes so they don't submit once in addition to hidden inputs
+                document.querySelectorAll('input.ticket-row-checkbox-hidden').forEach(cb => {
+                    cb.disabled = true;
+                });
+
                 // Reset button state before submitting
                 resetFormButton(formText, formLoader, submitButton);
 
@@ -2130,9 +2161,15 @@
         function updateButtonState() {
             const checkboxes = document.querySelectorAll('input[name="multitickets[]"]');
             const button = document.getElementById('form_book');
-            const isAnyChecked = [...checkboxes].some(checkbox => checkbox.checked);
+            if (!button) return;
+
+            const isAnyChecked = [...checkboxes].some(checkbox => {
+                const qty = parseInt(checkbox.dataset.selectedQty || (checkbox.checked ? '1' : '0'), 10);
+                return checkbox.checked && qty > 0;
+            });
             const hasCheckedAvailableTicket = [...checkboxes].some(checkbox => {
-                return checkbox.checked && !checkbox.disabled && parseInt(checkbox.dataset.availableQty || 0, 10) > 0;
+                const qty = parseInt(checkbox.dataset.selectedQty || (checkbox.checked ? '1' : '0'), 10);
+                return checkbox.checked && qty > 0 && !checkbox.disabled && parseInt(checkbox.dataset.availableQty || 0, 10) > 0;
             });
 
             // Check if this is event 16 with no database tickets
@@ -2169,14 +2206,14 @@
             // Normal logic for other cases
             button.disabled = !isAnyChecked;
             button.style.display = 'block'; // Show the button
-            // Always show primary color when tickets are available
-            button.style.backgroundColor = '';
-            button.classList.remove('cursor-not-allowed');
-            button.classList.add('bg-primary');
             if (isAnyChecked) {
-                button.classList.remove('no-cursor');
+                button.style.backgroundColor = '';
+                button.classList.remove('cursor-not-allowed', 'no-cursor');
+                button.classList.add('bg-primary');
             } else {
-                button.classList.add('no-cursor');
+                button.style.backgroundColor = '#9ca3af';
+                button.classList.add('cursor-not-allowed', 'no-cursor');
+                button.classList.remove('bg-primary');
             }
         }
 
@@ -2193,23 +2230,6 @@
     </script>
 
     <script>
-        // Visual stepper for each ticket row - wraps the existing hidden checkbox, does not
-        // change how selection is tracked (checkbox .checked / .disabled remain the source of truth).
-        function adjustTicketStepper(ticketId, delta) {
-            const checkbox = document.getElementById('multitickets-' + ticketId);
-            if (!checkbox || checkbox.disabled) {
-                return;
-            }
-
-            const nextChecked = delta > 0 ? true : false;
-            if (checkbox.checked === nextChecked) {
-                return;
-            }
-
-            checkbox.checked = nextChecked;
-            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-
         function toggleTicketSelect(ticketId) {
             const checkbox = document.getElementById('multitickets-' + ticketId);
             if (!checkbox || checkbox.disabled) {
@@ -2217,84 +2237,89 @@
             }
 
             checkbox.checked = !checkbox.checked;
+            checkbox.dataset.selectedQty = checkbox.checked ? '1' : '0';
             checkbox.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         function syncTicketRowStepper(ticketId) {
             const checkbox = document.getElementById('multitickets-' + ticketId);
             const row = document.getElementById('ticket-row-' + ticketId);
-            const qtyEl = document.getElementById('ticket-qty-' + ticketId);
             const selectBtn = document.getElementById('ticket-select-btn-' + ticketId);
             if (!checkbox || !row) {
                 return;
             }
 
             const isSelected = checkbox.checked;
-            if (qtyEl) {
-                qtyEl.textContent = isSelected ? '1' : '0';
-            }
+            const qty = parseInt(checkbox.dataset.selectedQty || (isSelected ? '1' : '0'), 10) || 0;
+
             if (selectBtn) {
                 selectBtn.textContent = isSelected ? @json(__('Selected')) : @json(__('Select'));
                 selectBtn.classList.toggle('is-active', isSelected);
             }
-            row.classList.toggle('is-selected', isSelected);
+
+            row.classList.toggle('is-selected', isSelected && qty > 0);
         }
 
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.ticket-row-checkbox-hidden').forEach(function (checkbox) {
                 const ticketId = checkbox.value;
+                checkbox.dataset.selectedQty = checkbox.checked ? '1' : '0';
                 syncTicketRowStepper(ticketId);
             });
+            updateButtonState();
         });
     </script>
 
     <script>
-        // Live "Your Selection" summary panel - additive only, does not alter existing ticket selection logic.
+        // Live "Your Selection" summary panel - reflects selected quantities & computes line/grand totals
         function refreshTicketsSummary() {
             const checkboxes = document.querySelectorAll('input[name="multitickets[]"]:checked');
             const emptyEl = document.getElementById('ticketsSummaryEmpty');
             const listEl = document.getElementById('ticketsSummaryList');
-            const totalWrap = document.getElementById('ticketsSummaryTotal');
-            const totalValueEl = document.getElementById('ticketsSummaryTotalValue');
 
-            if (!emptyEl || !listEl || !totalWrap || !totalValueEl) {
+            if (!emptyEl || !listEl) {
                 return;
             }
 
             listEl.innerHTML = '';
 
-            if (checkboxes.length === 0) {
+            const activeCheckboxes = Array.from(checkboxes).filter(function (cb) {
+                const qty = parseInt(cb.dataset.selectedQty || (cb.checked ? '1' : '0'), 10);
+                return qty > 0;
+            });
+
+            if (activeCheckboxes.length === 0) {
                 emptyEl.style.display = '';
                 listEl.style.display = 'none';
-                totalWrap.style.display = 'none';
                 return;
             }
 
             emptyEl.style.display = 'none';
             listEl.style.display = 'flex';
 
-            let total = 0;
-            checkboxes.forEach(function (checkbox) {
+            activeCheckboxes.forEach(function (checkbox) {
                 const name = checkbox.dataset.ticketName || '';
-                const priceLabel = checkbox.dataset.ticketPriceLabel || '';
                 const price = parseFloat(checkbox.dataset.ticketPrice || '0') || 0;
-                total += price;
+                const qty = parseInt(checkbox.dataset.selectedQty || '1', 10) || 1;
+                const lineTotal = price * qty;
 
                 const row = document.createElement('div');
                 row.className = 'tickets-summary-row';
 
                 const nameSpan = document.createElement('span');
-                nameSpan.textContent = name;
+                nameSpan.textContent = qty > 1 ? `${name} × ${qty}` : name;
+
                 const priceSpan = document.createElement('span');
-                priceSpan.textContent = priceLabel;
+                if (price === 0) {
+                    priceSpan.textContent = @json(__('Free'));
+                } else {
+                    priceSpan.textContent = @json($currency->currency_sybmol ?? '$') + lineTotal.toFixed(2);
+                }
 
                 row.appendChild(nameSpan);
                 row.appendChild(priceSpan);
                 listEl.appendChild(row);
             });
-
-            totalWrap.style.display = 'flex';
-            totalValueEl.textContent = @json($currency->currency_sybmol ?? '$') + total.toFixed(2);
         }
 
         document.addEventListener('DOMContentLoaded', function () {

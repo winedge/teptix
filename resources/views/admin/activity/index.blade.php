@@ -1,6 +1,71 @@
 @extends('master')
 
 @section('content')
+<style>
+    .activity-pagination-footer {
+        gap: 12px;
+    }
+    .activity-pagination-nav nav {
+        display: inline-block;
+    }
+    .activity-pagination-nav .pagination {
+        margin-bottom: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    .activity-pagination-nav .page-item .page-link {
+        min-width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 0 10px;
+        margin: 0 2px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        background-color: #fff;
+        color: #475569;
+        transition: all 0.2s ease-in-out;
+        text-decoration: none;
+    }
+    .activity-pagination-nav .page-item .page-link i,
+    .activity-pagination-nav .page-item .page-link .fa,
+    .activity-pagination-nav .page-item .page-link .fas {
+        font-size: 11px !important;
+        line-height: 1 !important;
+    }
+    .activity-pagination-nav .page-item.active .page-link {
+        background-color: var(--primary_color, #6777ef) !important;
+        border-color: var(--primary_color, #6777ef) !important;
+        color: #fff !important;
+        box-shadow: 0 2px 6px rgba(103, 119, 239, 0.35);
+    }
+    .activity-pagination-nav .page-item:not(.active):not(.disabled) .page-link:hover {
+        background-color: var(--primary_color, #6777ef) !important;
+        border-color: var(--primary_color, #6777ef) !important;
+        color: #fff !important;
+    }
+    .activity-pagination-nav .page-item.disabled .page-link {
+        color: #94a3b8 !important;
+        background-color: #f8fafc !important;
+        border-color: #e2e8f0 !important;
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+    .activity-pagination-nav svg,
+    .activity-pagination-footer svg {
+        width: 14px !important;
+        height: 14px !important;
+        max-width: 14px !important;
+        max-height: 14px !important;
+        display: inline-block;
+    }
+</style>
+
 <section class="section">
     @include('admin.layout.breadcrumbs', [
         'title' => __('Admin Activity'),
@@ -20,6 +85,9 @@
                                 @endforeach
                             </select>
                             <button type="submit" class="btn btn-primary">{{ __('Filter') }}</button>
+                            @if (request('activity_type'))
+                                <a href="{{ route('admin.activity.index') }}" class="btn btn-outline-secondary ml-2">{{ __('Clear') }}</a>
+                            @endif
                         </form>
                     </div>
                     <div class="card-body">
@@ -84,8 +152,21 @@
                             </table>
                         </div>
 
-                        @if (method_exists($activities, 'links'))
-                            {{ $activities->links() }}
+                        @if (method_exists($activities, 'links') && $activities->hasPages())
+                            <div class="activity-pagination-footer d-flex justify-content-between align-items-center flex-wrap pt-3 mt-3 border-top">
+                                <div class="text-muted small mb-2 mb-md-0">
+                                    {{ __('Showing') }} <span class="font-weight-bold text-dark">{{ $activities->firstItem() ?? 0 }}</span> {{ __('to') }} <span class="font-weight-bold text-dark">{{ $activities->lastItem() ?? 0 }}</span> {{ __('of') }} <span class="font-weight-bold text-dark">{{ $activities->total() }}</span> {{ __('entries') }}
+                                </div>
+                                <div class="activity-pagination-nav">
+                                    {{ $activities->links('vendor.pagination.bootstrap-4') }}
+                                </div>
+                            </div>
+                        @elseif (method_exists($activities, 'count') && $activities->count())
+                            <div class="activity-pagination-footer d-flex justify-content-between align-items-center flex-wrap pt-3 mt-3 border-top">
+                                <div class="text-muted small">
+                                    {{ __('Showing') }} <span class="font-weight-bold text-dark">1</span> {{ __('to') }} <span class="font-weight-bold text-dark">{{ $activities->count() }}</span> {{ __('of') }} <span class="font-weight-bold text-dark">{{ $activities->count() }}</span> {{ __('entries') }}
+                                </div>
+                            </div>
                         @endif
                     </div>
                 </div>
