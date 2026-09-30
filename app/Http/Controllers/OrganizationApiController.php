@@ -3046,7 +3046,9 @@ class OrganizationApiController extends Controller
         $data['event_id'] = $event->id;
         $data['customer_id'] = $appUser->id;
         $data['organization_id'] = $org->id;
+
         $data['order_status'] = 'Complete';
+
         $data['ticket_id'] = is_array($request->ticket_id) ? implode(',', $request->ticket_id) : $ticket->id;
         $data['quantity'] = $requestedQuantity;
         $data['payment'] = $finalPayment;
