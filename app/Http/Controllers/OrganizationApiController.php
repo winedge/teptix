@@ -2283,9 +2283,534 @@ class OrganizationApiController extends Controller
      *
      * Referenced from UserController::organizerCreateOrder
      */
-    public function createOrderOrganizer(Request $request)
+    // public function createOrderOrganizer(Request $request)
+    // {
+    //     Log::info('=== createOrderOrganizer request received ===', $request->all());
+
+    //     $request->validate([
+    //         'ticket_id' => 'bail|required',
+    //         'email' => 'bail|required|email',
+    //         'name' => 'bail|nullable|string',
+    //         'phone' => 'bail|required|string',
+    //         'quantity' => 'bail|required',
+    //         'tax_option' => 'bail|nullable|in:with_tax,without_tax,complimentary,custom_amount',
+    //         'tax_custom_amount' => 'required_if:tax_option,custom_amount|nullable|numeric|min:0',
+    //         'seat_ids' => 'nullable',
+    //         'event_seat_id' => 'nullable',
+    //         'venue_seat_ids' => 'nullable',
+    //         'book_seats' => 'nullable',
+    //     ]);
+
+    //     $data = $request->except([
+    //         'tax_data', 'tax_ids', 'venue_seat_ids', 'guest_hold_key',
+    //         'email', 'name', 'phone', 'seat_ids', 'event_seat_id'
+    //     ]);
+
+    //     $rawTicketIds = is_array($request->ticket_id) ? $request->ticket_id : explode(',', (string) $request->ticket_id);
+    //     $firstTicketId = (int) reset($rawTicketIds);
+    //     $ticket = Ticket::find($firstTicketId);
+
+    //     if (!$ticket) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => 'Ticket not found'
+    //         ], 404);
+    //     }
+
+    //     // Validate seat availability if specific venue map seats are passed
+    //     $seatIds = [];
+    //     if ($request->has('seat_details') && !empty($request->seat_details)) {
+    //         $detailsArray = is_string($request->seat_details) ? json_decode($request->seat_details, true) : $request->seat_details;
+    //         if (is_array($detailsArray)) {
+    //             foreach ($detailsArray as $sDetail) {
+    //                 if (is_array($sDetail) && isset($sDetail['seat_id'])) {
+    //                     $seatIds[] = (int) $sDetail['seat_id'];
+    //                 } elseif (is_object($sDetail) && isset($sDetail->seat_id)) {
+    //                     $seatIds[] = (int) $sDetail->seat_id;
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     if (empty($seatIds)) {
+    //         $rawSeatInput = $request->input('venue_seat_ids', $request->input('book_seats', $request->input('seat_ids', $request->input('event_seat_id'))));
+    //         if (!empty($rawSeatInput)) {
+    //             if (is_array($rawSeatInput)) {
+    //                 $seatIds = array_map('intval', $rawSeatInput);
+    //             } else {
+    //                 $seatIds = array_filter(array_map('intval', explode(',', (string) $rawSeatInput)));
+    //             }
+    //         }
+    //     }
+
+    //     $requestedSeats = collect();
+    //     if (!empty($seatIds)) {
+    //         $requestedSeats = \App\Models\EventVenueSeat::where('event_id', $ticket->event_id)
+    //             ->whereIn('id', $seatIds)
+    //             ->get()
+    //             ->values();
+
+    //         if ($requestedSeats->count() !== count($seatIds)) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'msg' => 'One or more requested seats were not found for this event.'
+    //             ], 400);
+    //         }
+
+    //         foreach ($requestedSeats as $seatItem) {
+    //             if ($seatItem->status === \App\Models\EventVenueSeat::STATUS_BOOKED) {
+    //                 return response()->json([
+    //                     'success' => false,
+    //                     'msg' => "Seat '{$seatItem->seat_label}' is already booked."
+    //                 ], 400);
+    //             }
+    //             if ($seatItem->status === \App\Models\EventVenueSeat::STATUS_BLOCKED) {
+    //                 return response()->json([
+    //                     'success' => false,
+    //                     'msg' => "Seat '{$seatItem->seat_label}' is blocked and unavailable."
+    //                 ], 400);
+    //             }
+    //         }
+    //     }
+
+    //     // Validate ticket quantity availability
+    //     $totalTicketQuantity = $ticket->quantity;
+
+    //     // Sum of all quantities from orders for this ticket (handle comma-separated ticket_ids)
+    //     $bookedQuantity = 0;
+    //     $orders = Order::where('event_id', $ticket->event_id)->get();
+
+    //     foreach ($orders as $order) {
+    //         $ticketIds = explode(',', $order->ticket_id);
+    //         $quantities = explode(',', $order->quantity);
+
+    //         foreach ($ticketIds as $index => $tid) {
+    //             if ((int)trim($tid) === $ticket->id) {
+    //                 if (isset($quantities[$index])) {
+    //                     $bookedQuantity += (int)trim($quantities[$index], '"');
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     $requestedQuantity = is_array($request->quantity) ? (int) array_sum($request->quantity) : (int) $request->quantity;
+    //     $availableQuantity = $totalTicketQuantity - $bookedQuantity;
+
+    //     // Check if requested quantity exceeds available quantity
+    //     if ($requestedQuantity > $availableQuantity) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => "Only {$availableQuantity} tickets available. You requested {$requestedQuantity} tickets."
+    //         ], 400);
+    //     }
+
+    //     $event = Event::find($ticket->event_id);
+
+    //     if (!$event) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => 'Event not found'
+    //         ], 404);
+    //     }
+
+    //     $org = User::find($event->user_id);
+
+    //     // Verify that the authenticated user is admin or owns this event
+    //     // Admin check: user_id = 1 OR has 'admin' role
+    //     $isAdmin = (Auth::user()->id === 1) || Auth::user()->hasRole('admin');
+    //     $isEventOwner = Auth::user()->id === $org->id;
+
+    //     if (!$isAdmin && !$isEventOwner) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => 'Unauthorized. You can only create orders for your own events.',
+    //             'debug' => [
+    //                 'user_id' => Auth::user()->id,
+    //                 'is_admin' => $isAdmin,
+    //                 'is_event_owner' => $isEventOwner,
+    //                 'event_owner_id' => $org->id
+    //             ]
+    //         ], 403);
+    //     }
+
+    //     // Find or create customer by email
+    //     $email = $request->email;
+    //     $appUser = AppUser::where('email', $email)->first();
+
+    //     if (!$appUser) {
+    //         // Create new customer
+    //         $appUser = AppUser::create([
+    //             'email' => $email,
+    //             'password' => bcrypt('123456'),
+    //             'name' => $request->name ?? 'Customer',
+    //             'phone' => $request->phone,
+    //             'provider' => 'LOCAL',
+    //             'is_verify' => 1,
+    //         ]);
+    //     } else {
+    //         // Update existing customer info
+    //         $appUser->update([
+    //             'phone' => $request->phone,
+    //             'name' => $request->name ?? $appUser->name,
+    //         ]);
+    //     }
+
+    //     // Calculate base payment (ticket price * quantity)
+    //     $basePayment = $ticket->price * $requestedQuantity;
+
+    //     // Get tax option (default: with_tax)
+    //     $taxOption = $request->tax_option ?? 'with_tax';
+    //     $totalTax = [];
+
+    //     // Handle tax based on tax_option
+    //     if ($taxOption === 'with_tax') {
+    //         // Apply taxes normally
+    //         $allTax = Tax::where(['status' => 1, 'allow_all_bill' => 1])->get();
+    //         foreach ($allTax as $key => $value) {
+    //             if ($value->amount_type == 'percentage') {
+    //                 $totalTax[$key]['id'] = $value->id;
+    //                 $totalTax[$key]['price'] = $basePayment * $value->price / 100;
+    //             }
+    //             if ($value->amount_type == 'price') {
+    //                 $totalTax[$key]['id'] = $value->id;
+    //                 $totalTax[$key]['price'] = $value->price;
+    //             }
+    //         }
+    //     } elseif ($taxOption === 'without_tax') {
+    //         // No tax applied
+    //         $totalTax = [];
+    //     } elseif ($taxOption === 'custom_amount') {
+    //         // custom_amount: treat as replacement price per ticket
+    //         $customPricePerTicket = isset($request->tax_custom_amount) ? floatval($request->tax_custom_amount) : 0;
+    //         $customTotal = $customPricePerTicket * $requestedQuantity;
+
+    //         // Validate custom price per ticket doesn't exceed original ticket price
+    //         if ($customPricePerTicket > $ticket->price) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'msg' => "Custom amount per ticket ({$customPricePerTicket}) cannot exceed ticket price ({$ticket->price})."
+    //             ], 400);
+    //         }
+
+    //         $totalDiscount = $basePayment - $customTotal; // e.g. (100-50)*6 = 300
+    //         if ($totalDiscount > 0) {
+    //             // Store as negative value so it subtracts from base payment
+    //             $totalTax[] = ['id' => 0, 'price' => -$totalDiscount];
+    //         } else {
+    //             $totalTax = [];
+    //         }
+    //     } elseif ($taxOption === 'complimentary') {
+    //         // Set payment to 0 and no tax
+    //         $basePayment = 0;
+    //         $totalTax = [];
+    //     }
+
+    //     // Calculate total tax amount
+    //     $taxAmount = array_sum(array_column($totalTax, 'price'));
+
+    //     // Calculate commission on base payment (before tax)
+    //     $com = Setting::find(1, ['org_commission_type', 'org_commission']);
+    //     $orgCommission = 0;
+
+    //     if ($taxOption === 'complimentary') {
+    //         $orgCommission = 0;
+    //     } else {
+    //         if ($com->org_commission_type == "percentage") {
+    //             $orgCommission = $basePayment * $com->org_commission / 100;
+    //         } else if ($com->org_commission_type == "amount") {
+    //             $orgCommission = $com->org_commission;
+    //         }
+    //     }
+
+    //     // Set final payment amount
+    //     if ($taxOption === 'complimentary') {
+    //         $finalPayment = 0;
+    //     } else {
+    //         $finalPayment = $basePayment + $taxAmount;
+    //     }
+
+    //     // Prepare order data
+    //     $data['order_id'] = '#' . rand(9999, 100000);
+    //     $data['event_id'] = $event->id;
+    //     $data['customer_id'] = $appUser->id;
+    //     $data['organization_id'] = $org->id;
+    //     // $data['order_status'] = 'Pending';
+    //      $data['order_status'] = 'Complete';
+    //     $data['ticket_id'] = is_array($request->ticket_id) ? implode(',', $request->ticket_id) : $ticket->id;
+    //     $data['quantity'] = $requestedQuantity;
+    //     $data['payment'] = $finalPayment;
+    //     $data['tax'] = $taxAmount;
+    //     $data['org_commission'] = $orgCommission;
+    //     $data['tax_option'] = $taxOption;
+
+    //     if (isset($data['book_seats']) && is_array($data['book_seats'])) {
+    //         $data['book_seats'] = json_encode($data['book_seats']);
+    //     }
+    //     if (isset($data['seat_details']) && is_array($data['seat_details'])) {
+    //         $data['seat_details'] = json_encode($data['seat_details']);
+    //     }
+
+    //     $data['tax_custom_amount'] = $taxOption === 'custom_amount' ? floatval($request->tax_custom_amount ?? 0) : 0;
+
+    //     // Set payment type and status based on tax_option
+    //     if ($taxOption === 'complimentary') {
+    //         $data['payment_type'] = 'FREE';
+    //         $data['payment_status'] = 0; // 0 = FREE / Pending
+    //     } else {
+    //         $data['payment_type'] = 'LOCAL';
+    //         $data['payment_status'] = 0; // 0 = Pending
+    //     }
+
+    //     try {
+    //         $order = Order::create($data);
+
+    //         // Build map of seat_id -> ticket_id from seat_details if present
+    //         $seatTicketMap = [];
+    //         if ($request->has('seat_details') && !empty($request->seat_details)) {
+    //             $detailsArray = is_string($request->seat_details) ? json_decode($request->seat_details, true) : $request->seat_details;
+    //             if (is_array($detailsArray)) {
+    //                 foreach ($detailsArray as $sDetail) {
+    //                     $sId = (int) ($sDetail['seat_id'] ?? $sDetail['seat_id'] ?? 0);
+    //                     if (is_object($sDetail)) {
+    //                         $sId = (int) ($sDetail->seat_id ?? 0);
+    //                         $tId = (int) ($sDetail->ticket_id ?? 0);
+    //                     } else {
+    //                         $tId = (int) ($sDetail['ticket_id'] ?? 0);
+    //                     }
+    //                     if ($sId > 0 && $tId > 0) {
+    //                         $seatTicketMap[$sId] = $tId;
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         // Build array of ticket_ids corresponding to each child index
+    //         $expandedTicketIds = [];
+    //         if (is_array($request->ticket_id) && is_array($request->quantity)) {
+    //             foreach ($request->ticket_id as $idx => $tId) {
+    //                 $qty = isset($request->quantity[$idx]) ? (int) $request->quantity[$idx] : 1;
+    //                 for ($q = 0; $q < $qty; $q++) {
+    //                     $expandedTicketIds[] = (int) $tId;
+    //                 }
+    //             }
+    //         }
+
+    //         // Create OrderChild records for each ticket quantity
+    //         for ($i = 0; $i < $requestedQuantity; $i++) {
+    //             $child = [];
+    //             $child['ticket_number'] = uniqid();
+    //             $child['order_id'] = $order->id;
+    //             $child['customer_id'] = $appUser->id;
+
+    //             $assignedSeat = null;
+    //             $childTicketId = $expandedTicketIds[$i] ?? $ticket->id;
+
+    //             if (isset($requestedSeats[$i])) {
+    //                 $assignedSeat = $requestedSeats[$i];
+    //                 if (isset($seatTicketMap[$assignedSeat->id])) {
+    //                     $childTicketId = $seatTicketMap[$assignedSeat->id];
+    //                 }
+    //                 $seatLabel = $assignedSeat->seat_label ?: trim($assignedSeat->section_name . ' ' . $assignedSeat->row_name . ' Seat ' . $assignedSeat->seat_number);
+
+    //                 $child['event_venue_seat_id'] = $assignedSeat->id;
+    //                 $child['seat_id'] = $assignedSeat->id;
+    //                 $child['Book_Seat_Id'] = $seatLabel;
+    //             }
+
+    //             $childTicket = Ticket::find($childTicketId) ?: $ticket;
+    //             $child['ticket_id'] = $childTicket->id;
+    //             $child['checkin'] = $childTicket->maximum_checkins ?? null;
+    //             $child['paid'] = 1;
+
+    //             $createdChild = \App\Models\OrderChild::create($child);
+
+    //             if ($assignedSeat) {
+    //                 $assignedSeat->update([
+    //                     'status' => \App\Models\EventVenueSeat::STATUS_BOOKED,
+    //                     'booked_order_id' => $order->id,
+    //                     'booked_order_child_id' => $createdChild->id,
+    //                     'booked_at' => now(),
+    //                     'hold_token' => null,
+    //                     'held_by_session_id' => null,
+    //                     'held_by_app_user_id' => null,
+    //                     'held_by_guest_user_id' => null,
+    //                     'held_at' => null,
+    //                     'hold_expires_at' => null,
+    //                 ]);
+    //             }
+    //         }
+
+    //         // Create OrderTax records
+    //         if (!empty($totalTax)) {
+    //             foreach ($totalTax as $value) {
+    //                 $tax['order_id'] = $order->id;
+    //                 $tax['tax_id'] = $value['id'];
+    //                 $tax['price'] = $value['price'];
+    //                 OrderTax::create($tax);
+    //             }
+    //         }
+
+    //         // Send email notifications
+    //         $setting = Setting::find(1);
+
+    //         // Send user notification
+    //         $ticketBookTemplate = NotificationTemplate::where('title', 'Book Ticket')->first();
+    //         $detail['user_name'] = $appUser->name . ' ' . ($appUser->last_name ?? '');
+    //         $detail['quantity'] = $requestedQuantity;
+    //         $detail['event_name'] = $event->name;
+    //         $detail['date'] = $event->start_time->format('d F Y h:i a');
+    //         $detail['app_name'] = $setting->app_name;
+    //         $noti_data = ["{{user_name}}", "{{quantity}}", "{{event_name}}", "{{date}}", "{{app_name}}"];
+    //         $message1 = $ticketBookTemplate
+    //             ? str_replace($noti_data, $detail, $ticketBookTemplate->message_content)
+    //             : "Ticket booked for {$event->name}.";
+
+    //         $notification = array();
+    //         $notification['organizer_id'] = null;
+    //         $notification['user_id'] = $appUser->id;
+    //         $notification['order_id'] = $order->id;
+    //         $notification['title'] = 'Ticket Booked';
+    //         $notification['message'] = $message1;
+    //         Notification::create($notification);
+
+    //         // Send push notification
+    //         if ($setting->push_notification == 1 && $appUser->device_token != null) {
+    //             (new AppHelper)->sendOneSignal('user', $appUser->device_token, $message1);
+    //         }
+
+    //         // Send user email
+    //         if ($setting->mail_notification == 1) {
+    //             (new AppHelper)->mailConfig();
+
+    //             try {
+    //                 $details['user_name'] = $appUser->name . ' ' . ($appUser->last_name ?? '');
+    //                 $details['quantity'] = $requestedQuantity;
+    //                 $details['event_name'] = $event->name;
+    //                 $details['date'] = $event->start_time->format('d F Y h:i a');
+    //                 $details['app_name'] = $setting->app_name;
+
+    //                 if ($ticketBookTemplate) {
+    //                     $qrcode = $order->order_id;
+    //                     Mail::to($appUser->email)->send(new TicketBook($ticketBookTemplate->mail_content, $details, $ticketBookTemplate->subject, $qrcode));
+    //                 }
+    //             } catch (\Throwable $th) {
+    //                 // Silent fail
+    //             }
+
+    //             // Send QR PDFs + invoice PDF in ONE email
+    //             try {
+    //                 $this->sendTicketQrAndInvoiceMailApi($order->id);
+    //             } catch (\Throwable $th) {
+    //                 // Silent fail
+    //             }
+    //         }
+
+    //         // Send organizer notification
+    //         $organizerBookTemplate = NotificationTemplate::where('title', 'Organizer Book Ticket')->first();
+    //         $or_detail['organizer_name'] = $org->organization_name ?? $org->first_name . ' ' . $org->last_name;
+    //         $or_detail['user_name'] = $appUser->name . ' ' . ($appUser->last_name ?? '');
+    //         $or_detail['quantity'] = $requestedQuantity;
+    //         $or_detail['event_name'] = $event->name;
+    //         $or_detail['date'] = $event->start_time->format('d F Y h:i a');
+    //         $or_detail['app_name'] = $setting->app_name;
+    //         $or_noti_data = ["{{organizer_name}}", "{{user_name}}", "{{quantity}}", "{{event_name}}", "{{date}}", "{{app_name}}"];
+    //         $or_message1 = $organizerBookTemplate
+    //             ? str_replace($or_noti_data, $or_detail, $organizerBookTemplate->message_content)
+    //             : "New ticket booked for {$event->name}.";
+
+    //         $or_notification = array();
+    //         $or_notification['organizer_id'] = $org->id;
+    //         $or_notification['user_id'] = null;
+    //         $or_notification['order_id'] = $order->id;
+    //         $or_notification['title'] = 'New Ticket Booked';
+    //         $or_notification['message'] = $or_message1;
+    //         Notification::create($or_notification);
+
+    //         // Send organizer push notification
+    //         if ($setting->push_notification == 1 && $org->device_token != null) {
+    //             (new AppHelper)->sendOneSignal('organizer', $org->device_token, $or_message1);
+    //         }
+
+    //         // Send organizer email
+    //         if ($setting->mail_notification == 1) {
+    //             try {
+    //                 $details1['organizer_name'] = $org->organization_name ?? $org->first_name . ' ' . $org->last_name;
+    //                 $details1['user_name'] = $appUser->name . ' ' . ($appUser->last_name ?? '');
+    //                 $details1['quantity'] = $requestedQuantity;
+    //                 $details1['event_name'] = $event->name;
+    //                 $details1['date'] = $event->start_time->format('d F Y h:i a');
+    //                 $details1['app_name'] = $setting->app_name;
+
+    //                 if ($organizerBookTemplate) {
+    //                     Mail::to($org->email)->send(new TicketBookOrg($organizerBookTemplate->mail_content, $details1, $organizerBookTemplate->subject));
+    //                 }
+    //             } catch (\Throwable $th) {
+    //                 // Silent fail
+    //             }
+    //         }
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'msg' => 'Order created successfully',
+    //             'data' => [
+    //                 'order' => $order,
+    //                 'tax_option' => $taxOption,
+    //                 'base_payment' => $basePayment,
+    //                 'tax_amount' => $taxAmount,
+    //                 'final_payment' => $finalPayment,
+    //                 'order_id' => $order->order_id,
+    //                 'payment_type' => $data['payment_type']
+    //             ]
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to create organizer API order', [
+    //             'ticket_id' => $request->ticket_id,
+    //             'email' => $request->email,
+    //             'quantity' => $request->quantity,
+    //             'tax_option' => $request->tax_option,
+    //             'error' => $e->getMessage(),
+    //         ]);
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => 'Failed to create order. Please try again.'
+    //         ], 500);
+    //     }
+    // }
+     public function createOrderOrganizer(Request $request)
     {
         Log::info('=== createOrderOrganizer request received ===', $request->all());
+
+        // Support strategy alias if provided under tax_configuration_strategy or human-readable names
+        if (!$request->has('tax_option') && $request->has('tax_configuration_strategy')) {
+            $request->merge(['tax_option' => $request->input('tax_configuration_strategy')]);
+        }
+
+        if ($request->has('tax_option')) {
+            $strategyMap = [
+                'standard configuration (with tax)' => 'with_tax',
+                'standard pricing system (with tax)' => 'with_tax',
+                'tax exempt (without tax)' => 'without_tax',
+                'tax exempt operational profile (no tax)' => 'without_tax',
+                'complimentary allocation (free)' => 'complimentary',
+                'system authorized complimentary pass (free)' => 'complimentary',
+                'custom override with manual discount' => 'custom_amount',
+                'manual rate negotiation adjustment' => 'custom_amount',
+            ];
+            $normalizedOption = strtolower(trim((string) $request->input('tax_option')));
+            if (isset($strategyMap[$normalizedOption])) {
+                $request->merge(['tax_option' => $strategyMap[$normalizedOption]]);
+            }
+        }
+
+        // Support custom_adjusted_price / custom_price alias for tax_custom_amount
+        if (!$request->filled('tax_custom_amount')) {
+            if ($request->filled('custom_adjusted_price')) {
+                $request->merge(['tax_custom_amount' => $request->input('custom_adjusted_price')]);
+            } elseif ($request->filled('custom_price')) {
+                $request->merge(['tax_custom_amount' => $request->input('custom_price')]);
+            }
+        }
 
         $request->validate([
             'ticket_id' => 'bail|required',
@@ -2303,7 +2828,8 @@ class OrganizationApiController extends Controller
 
         $data = $request->except([
             'tax_data', 'tax_ids', 'venue_seat_ids', 'guest_hold_key',
-            'email', 'name', 'phone', 'seat_ids', 'event_seat_id'
+            'email', 'name', 'phone', 'seat_ids', 'event_seat_id',
+            'tax_configuration_strategy', 'custom_adjusted_price', 'custom_price'
         ]);
 
         $rawTicketIds = is_array($request->ticket_id) ? $request->ticket_id : explode(',', (string) $request->ticket_id);
@@ -2480,25 +3006,11 @@ class OrganizationApiController extends Controller
             // No tax applied
             $totalTax = [];
         } elseif ($taxOption === 'custom_amount') {
-            // custom_amount: treat as replacement price per ticket
+            // Custom amount: the entered value IS the final ticket price (replaces the original price)
             $customPricePerTicket = isset($request->tax_custom_amount) ? floatval($request->tax_custom_amount) : 0;
-            $customTotal = $customPricePerTicket * $requestedQuantity;
-
-            // Validate custom price per ticket doesn't exceed original ticket price
-            if ($customPricePerTicket > $ticket->price) {
-                return response()->json([
-                    'success' => false,
-                    'msg' => "Custom amount per ticket ({$customPricePerTicket}) cannot exceed ticket price ({$ticket->price})."
-                ], 400);
-            }
-
-            $totalDiscount = $basePayment - $customTotal; // e.g. (100-50)*6 = 300
-            if ($totalDiscount > 0) {
-                // Store as negative value so it subtracts from base payment
-                $totalTax[] = ['id' => 0, 'price' => -$totalDiscount];
-            } else {
-                $totalTax = [];
-            }
+            $basePayment = $customPricePerTicket * $requestedQuantity;
+            // No tax entries for custom_amount - price is already set
+            $totalTax = [];
         } elseif ($taxOption === 'complimentary') {
             // Set payment to 0 and no tax
             $basePayment = 0;
@@ -2534,8 +3046,9 @@ class OrganizationApiController extends Controller
         $data['event_id'] = $event->id;
         $data['customer_id'] = $appUser->id;
         $data['organization_id'] = $org->id;
-        // $data['order_status'] = 'Pending';
-         $data['order_status'] = 'Complete';
+
+        $data['order_status'] = 'Complete';
+
         $data['ticket_id'] = is_array($request->ticket_id) ? implode(',', $request->ticket_id) : $ticket->id;
         $data['quantity'] = $requestedQuantity;
         $data['payment'] = $finalPayment;
