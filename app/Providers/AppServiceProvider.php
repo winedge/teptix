@@ -6,6 +6,7 @@ use \App\Models\Setting;
 use \App\Models\Currency;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Pagination\Paginator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
     {
         //
         Schema::defaultStringLength(191);      
+        Paginator::useBootstrap();
         view()->composer('*', function ($view) {
             if(env('DB_DATABASE')!=null){
                 $cur = Setting::find(1)->currency; 

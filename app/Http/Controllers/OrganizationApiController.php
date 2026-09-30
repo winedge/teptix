@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Auth;
 use App\Models\AppUser;
-use App\Models\User;
-use App\Models\Event;
-use App\Models\Video;
+use App\Models\GuestUser;
+use App\Models\EventVenueSeat;
+ use App\Models\User;
+    use App\Models\Event;
+    use App\Models\Banner;
+    use App\Models\Video;
 use App\Models\Category;
 use App\Models\Coupon;
 use App\Models\Order;
@@ -271,75 +274,194 @@ class OrganizationApiController extends Controller
         $data = Auth::user()->makeHidden(['created_at', 'updated_at']);
         return response()->json(['data' => $data, 'success' => true], 200);
     }
-
-    public function events()
-    {
-        $timezone = Setting::find(1)->timezone;
-        $date = Carbon::now($timezone);
-        $userId = Auth::user()->id;
-        $dateStr = $date->format('Y-m-d H:i:s');
-
-        $userScope = function ($query) use ($userId) {
-            $query->where('user_id', $userId)
-                  ->orWhereRaw('FIND_IN_SET(?, REPLACE(user_id, " ", ""))', [$userId]);
-        };
-
-        $data['past'] = Event::with(['ticket'])
-            ->where('is_deleted', 0)
-            ->where($userScope)
-            ->where(function ($query) use ($dateStr) {
-                $query->where(function ($q) use ($dateStr) {
-                    $q->where('status', 1)
-                      ->where('start_time', '<=', $dateStr)
-                      ->where('end_time', '<=', $dateStr);
-                })->orWhere(function ($q) use ($dateStr) {
-                    $q->where('status', 1)
-                      ->where('event_status', 'Cancel')
-                      ->where('start_time', '<=', $dateStr)
-                      ->where('end_time', '<=', $dateStr);
-                });
-            })
-            ->orderBy('start_time', 'ASC')->get();
-
-        foreach ($data['past'] as $value) {
-            $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+ private function mapEventAndroidImage($event, $bannerAndroidImages = null)
+        {
+            if (!$event) {
+                return;
+            }
+    
+            // 1. Check if image_for_android column exists on the event record
+            $androidImage = $event->image_for_android ?? null;
+    
+            // 2. Check banner table for this same event
+            if (empty($androidImage)) {
+                if ($bannerAndroidImages !== null) {
+                    $androidImage = $bannerAndroidImages[$event->id] ?? null;
+                } else {
+                    $androidImage = Banner::where('event_id', $event->id)
+                        ->whereNotNull('image_for_android')
+                        ->where('image_for_android', '!=', '')
+                        ->value('image_for_android');
+                }
+            }
+    
+            // If an android image was resolved, assign it to the existing `image` field
+            if (!empty($androidImage)) {
+                $event->image = $androidImage;
+            }
+    
+            // Strictly guarantee that image_for_android is never returned as a new field
+            $event->makeHidden('image_for_android');
+            unset($event->image_for_android);
         }
+        
+    // public function events()
+    // {
+    //     $timezone = Setting::find(1)->timezone;
+    //     $date = Carbon::now($timezone);
+    //     $userId = Auth::user()->id;
+    //     $dateStr = $date->format('Y-m-d H:i:s');
 
-        $data['draft'] = Event::with(['ticket'])
-            ->where('is_deleted', 0)
-            ->where('status', 0)
-            ->where('event_status', 'Pending')
-            ->where($userScope)
-            ->orderBy('start_time', 'ASC')->get();
-        foreach ($data['draft'] as $value) {
-            $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+    //     $userScope = function ($query) use ($userId) {
+    //         $query->where('user_id', $userId)
+    //               ->orWhereRaw('FIND_IN_SET(?, REPLACE(user_id, " ", ""))', [$userId]);
+    //     };
+
+    //     $data['past'] = Event::with(['ticket'])
+    //         ->where('is_deleted', 0)
+    //         ->where($userScope)
+    //         ->where(function ($query) use ($dateStr) {
+    //             $query->where(function ($q) use ($dateStr) {
+    //                 $q->where('status', 1)
+    //                   ->where('start_time', '<=', $dateStr)
+    //                   ->where('end_time', '<=', $dateStr);
+    //             })->orWhere(function ($q) use ($dateStr) {
+    //                 $q->where('status', 1)
+    //                   ->where('event_status', 'Cancel')
+    //                   ->where('start_time', '<=', $dateStr)
+    //                   ->where('end_time', '<=', $dateStr);
+    //             });
+    //         })
+    //         ->orderBy('start_time', 'ASC')->get();
+
+    //     foreach ($data['past'] as $value) {
+    //         $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+    //     }
+
+    //     $data['draft'] = Event::with(['ticket'])
+    //         ->where('is_deleted', 0)
+    //         ->where('status', 0)
+    //         ->where('event_status', 'Pending')
+    //         ->where($userScope)
+    //         ->orderBy('start_time', 'ASC')->get();
+    //     foreach ($data['draft'] as $value) {
+    //         $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+    //     }
+
+    //     $data['upcoming'] = Event::with(['ticket'])
+    //         ->where('is_deleted', 0)
+    //         ->where('status', 1)
+    //         ->where('event_status', 'Pending')
+    //         ->where('start_time', '>=', $dateStr)
+    //         ->where($userScope)
+    //         ->orderBy('start_time', 'ASC')->get();
+    //     foreach ($data['upcoming'] as $value) {
+    //         $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+    //     }
+
+    //     $data['ongoing'] = Event::with(['ticket'])
+    //         ->where('is_deleted', 0)
+    //         ->where('status', 1)
+    //         ->where('event_status', 'Pending')
+    //         ->where('start_time', '<=', $dateStr)
+    //         ->where('end_time', '>=', $dateStr)
+    //         ->where($userScope)
+    //         ->orderBy('start_time', 'ASC')->get();
+    //     foreach ($data['ongoing'] as $value) {
+    //         $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+    //     }
+
+    //     return response()->json(['data' => $data, 'success' => true], 200);
+    // }
+      public function events()
+        {
+            $timezone = Setting::find(1)->timezone;
+            $date = Carbon::now($timezone);
+            $userId = Auth::user()->id;
+            $dateStr = $date->format('Y-m-d H:i:s');
+    
+            $userScope = function ($query) use ($userId) {
+                $query->where('user_id', $userId)
+                      ->orWhereRaw('FIND_IN_SET(?, REPLACE(user_id, " ", ""))', [$userId]);
+            };
+    
+            $data['past'] = Event::with(['ticket'])
+                ->where('is_deleted', 0)
+                ->where($userScope)
+                ->where(function ($query) use ($dateStr) {
+                    $query->where(function ($q) use ($dateStr) {
+                        $q->where('status', 1)
+                          ->where('start_time', '<=', $dateStr)
+                          ->where('end_time', '<=', $dateStr);
+                    })->orWhere(function ($q) use ($dateStr) {
+                        $q->where('status', 1)
+                          ->where('event_status', 'Cancel')
+                          ->where('start_time', '<=', $dateStr)
+                          ->where('end_time', '<=', $dateStr);
+                    });
+                })
+                ->orderBy('start_time', 'ASC')->get();
+    
+            $data['draft'] = Event::with(['ticket'])
+                ->where('is_deleted', 0)
+                ->where('status', 0)
+                ->where('event_status', 'Pending')
+                ->where($userScope)
+                ->orderBy('start_time', 'ASC')->get();
+    
+            $data['upcoming'] = Event::with(['ticket'])
+                ->where('is_deleted', 0)
+                ->where('status', 1)
+                ->where('event_status', 'Pending')
+                ->where('start_time', '>=', $dateStr)
+                ->where($userScope)
+                ->orderBy('start_time', 'ASC')->get();
+    
+            $data['ongoing'] = Event::with(['ticket'])
+                ->where('is_deleted', 0)
+                ->where('status', 1)
+                ->where('event_status', 'Pending')
+                ->where('start_time', '<=', $dateStr)
+                ->where('end_time', '>=', $dateStr)
+                ->where($userScope)
+                ->orderBy('start_time', 'ASC')->get();
+    
+            $allEventIds = collect()
+                ->concat($data['past']->pluck('id'))
+                ->concat($data['draft']->pluck('id'))
+                ->concat($data['upcoming']->pluck('id'))
+                ->concat($data['ongoing']->pluck('id'))
+                ->unique()
+                ->filter()
+                ->values();
+    
+            $bannerAndroidImages = Banner::whereIn('event_id', $allEventIds)
+                ->whereNotNull('image_for_android')
+                ->where('image_for_android', '!=', '')
+                ->pluck('image_for_android', 'event_id');
+    
+            foreach ($data['past'] as $value) {
+                $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+                $this->mapEventAndroidImage($value, $bannerAndroidImages);
+            }
+    
+            foreach ($data['draft'] as $value) {
+                $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+                $this->mapEventAndroidImage($value, $bannerAndroidImages);
+            }
+    
+            foreach ($data['upcoming'] as $value) {
+                $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+                $this->mapEventAndroidImage($value, $bannerAndroidImages);
+            }
+    
+            foreach ($data['ongoing'] as $value) {
+                $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
+                $this->mapEventAndroidImage($value, $bannerAndroidImages);
+            }
+    
+            return response()->json(['data' => $data, 'success' => true], 200);
         }
-
-        $data['upcoming'] = Event::with(['ticket'])
-            ->where('is_deleted', 0)
-            ->where('status', 1)
-            ->where('event_status', 'Pending')
-            ->where('start_time', '>=', $dateStr)
-            ->where($userScope)
-            ->orderBy('start_time', 'ASC')->get();
-        foreach ($data['upcoming'] as $value) {
-            $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
-        }
-
-        $data['ongoing'] = Event::with(['ticket'])
-            ->where('is_deleted', 0)
-            ->where('status', 1)
-            ->where('event_status', 'Pending')
-            ->where('start_time', '<=', $dateStr)
-            ->where('end_time', '>=', $dateStr)
-            ->where($userScope)
-            ->orderBy('start_time', 'ASC')->get();
-        foreach ($data['ongoing'] as $value) {
-            $value->description = str_replace("&nbsp;", " ", strip_tags($value->description));
-        }
-
-        return response()->json(['data' => $data, 'success' => true], 200);
-    }
 
     public function searchEvents()
     {
@@ -412,16 +534,6 @@ class OrganizationApiController extends Controller
             'description' => 'bail|required',
             'people' => 'bail|required|numeric',
         ]);
-
-        // Custom dimension validation for API images
-        if (isset($request->image)) {
-            // Decode base64 image to validate dimensions
-            $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $request->image));
-            $imageInfo = getimagesizefromstring($imageData);
-            if ($imageInfo && ($imageInfo[0] != 1099 || $imageInfo[1] != 550)) {
-                return response()->json(['msg' => 'Image must be exactly 1099x550 pixels.', 'success' => false], 400);
-            }
-        }
 
         // Custom dimension validation for event_logo
         if (isset($request->event_logo)) {
@@ -544,16 +656,6 @@ class OrganizationApiController extends Controller
             'people' => 'bail|required|numeric',
         ]);
 
-        // Custom dimension validation for API images
-        if (isset($request->image)) {
-            // Decode base64 image to validate dimensions
-            $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $request->image));
-            $imageInfo = getimagesizefromstring($imageData);
-            if ($imageInfo && ($imageInfo[0] != 1099 || $imageInfo[1] != 550)) {
-                return response()->json(['msg' => 'Image must be exactly 1099x550 pixels.', 'success' => false], 400);
-            }
-        }
-
         $data = $request->all();
         if (isset($request->image)) {
             $data['image'] = (new AppHelper)->saveApiImage($request);
@@ -659,8 +761,13 @@ class OrganizationApiController extends Controller
 
     public function eventDetail($id)
     {
-        $data = Event::with(['category:id,name', 'video'])->find($id);
-        $data->description =  str_replace("&nbsp;", " ", strip_tags($data->description));
+        // $data = Event::with(['category:id,name', 'video'])->find($id);
+        // $data->description =  str_replace("&nbsp;", " ", strip_tags($data->description));
+         $data = Event::with(['category:id,name', 'video'])->find($id);
+            if ($data) {
+                $this->mapEventAndroidImage($data);
+            }
+            $data->description =  str_replace("&nbsp;", " ", strip_tags($data->description));
         $data->startTime = $data->start_time->format('h:i a');
         $data->endTime = $data->end_time->format('h:i a');
         $data->tags = array_filter(explode(',', $data->tags));
@@ -692,13 +799,19 @@ class OrganizationApiController extends Controller
     public function eventGuestList(Request $request, $id)
     {
         (new AppHelper)->eventStatusChange();
+        $event = Event::find($id);
         $perPage = $request->input('per_page', $request->input('limit', 10));
-        $data = Order::with(['customer:name,id,email,phone', 'guestUser:name,id,email,phone', 'ticket:id,ticket_number'])
+        $data = Order::with([
+            'customer:name,id,email,phone',
+            'guestUser:name,id,email,phone',
+            'ticket:id,name,ticket_number,type,price',
+            'orderChild.ticket:id,name,ticket_number,type,price'
+        ])
             ->where('event_id', $id)
             ->orderBy('id', 'DESC')
             ->paginate($perPage);
 
-        $data->getCollection()->each->setAppends([])->makeHidden(['payment_type', 'updated_at', 'payment_token', 'coupon_discount', 'coupon_id']);
+        $this->formatOrdersCollection($data->getCollection(), $event);
 
         return response()->json(['data' => $data, 'success' => true], 200);
     }
@@ -706,7 +819,13 @@ class OrganizationApiController extends Controller
     public function orderDetail($id)
     {
         (new AppHelper)->eventStatusChange();
-        $data = Order::with(['customer:name,id,email,phone', 'guestUser:name,id,email,phone', 'ticket:id,ticket_number', 'event:id,name,start_time,end_time', 'orderChild'])
+        $data = Order::with([
+            'customer:name,id,email,phone',
+            'guestUser:name,id,email,phone',
+            'ticket:id,name,ticket_number,type,price',
+            'event:id,name,start_time,end_time',
+            'orderChild.ticket:id,name,ticket_number,type,price'
+        ])
             ->where('id', $id)
             ->orWhere('order_id', $id)
             ->orWhere('order_id', '#' . $id)
@@ -716,8 +835,405 @@ class OrganizationApiController extends Controller
             return response()->json(['msg' => 'Order not found', 'data' => null, 'success' => false], 404);
         }
 
-        $data->setAppends([])->makeHidden(['updated_at', 'payment_token', 'coupon_discount', 'coupon_id']);
+        $this->formatOrdersCollection(collect([$data]), $data->event);
+        $data->setAppends([])->makeHidden(['updated_at', 'payment_token', 'coupon_discount', 'coupon_id', 'review']);
         return response()->json(['data' => $data, 'success' => true], 200);
+    }
+
+    private function formatOrdersCollection($orders, $event = null)
+    {
+        if ($orders->isEmpty()) {
+            return $orders;
+        }
+
+        $customerIds = [];
+        $guestUserIds = [];
+        $venueSeatIds = [];
+
+        foreach ($orders as $order) {
+            if ($order->customer_id) {
+                $customerIds[] = $order->customer_id;
+            }
+            if ($order->guestuser_id) {
+                $guestUserIds[] = $order->guestuser_id;
+            }
+
+            if ($order->relationLoaded('orderChild') && $order->orderChild) {
+                foreach ($order->orderChild as $child) {
+                    if ($child->customer_id) {
+                        $customerIds[] = $child->customer_id;
+                    }
+                    if ($child->guestuser_id) {
+                        $guestUserIds[] = $child->guestuser_id;
+                    }
+                    if ($child->event_venue_seat_id) {
+                        $venueSeatIds[] = $child->event_venue_seat_id;
+                    }
+                }
+            }
+        }
+
+        $customerIds = array_unique(array_filter($customerIds));
+        $guestUserIds = array_unique(array_filter($guestUserIds));
+        $venueSeatIds = array_unique(array_filter($venueSeatIds));
+
+        $appUsers = !empty($customerIds) ? AppUser::whereIn('id', $customerIds)->get()->keyBy('id') : collect();
+        $guestUsers = !empty($guestUserIds) ? GuestUser::whereIn('id', $guestUserIds)->get()->keyBy('id') : collect();
+
+        $missingAppUserIds = array_diff($customerIds, $appUsers->keys()->toArray());
+        $fallbackGuests = !empty($missingAppUserIds) ? GuestUser::whereIn('id', $missingAppUserIds)->get()->keyBy('id') : collect();
+
+        $missingGuestUserIds = array_diff($guestUserIds, $guestUsers->keys()->toArray());
+        $fallbackApps = !empty($missingGuestUserIds) ? AppUser::whereIn('id', $missingGuestUserIds)->get()->keyBy('id') : collect();
+
+        $venueSeats = !empty($venueSeatIds) ? EventVenueSeat::whereIn('id', $venueSeatIds)->get()->keyBy('id') : collect();
+
+        $knownEmails = array_filter(array_merge(
+            $appUsers->pluck('email')->toArray(),
+            $guestUsers->pluck('email')->toArray(),
+            $fallbackGuests->pluck('email')->toArray(),
+            $fallbackApps->pluck('email')->toArray()
+        ));
+
+        $crossGuests = !empty($knownEmails) ? GuestUser::whereIn('email', $knownEmails)->get()->keyBy('email') : collect();
+        $crossApps = !empty($knownEmails) ? AppUser::whereIn('email', $knownEmails)->get()->keyBy('email') : collect();
+
+        foreach ($orders as $order) {
+            $customerId = $order->customer_id;
+            $guestUserId = $order->guestuser_id;
+
+            if ($order->relationLoaded('orderChild') && $order->orderChild) {
+                if (empty($guestUserId)) {
+                    $cg = $order->orderChild->first(fn($c) => !empty($c->guestuser_id));
+                    if ($cg) {
+                        $guestUserId = $cg->guestuser_id;
+                    }
+                }
+                if (empty($customerId)) {
+                    $cc = $order->orderChild->first(fn($c) => !empty($c->customer_id));
+                    if ($cc) {
+                        $customerId = $cc->customer_id;
+                    }
+                }
+            }
+
+            $appUser = $customerId ? ($appUsers->get($customerId) ?? $fallbackApps->get($customerId)) : null;
+            $guestUser = $guestUserId ? ($guestUsers->get($guestUserId) ?? $fallbackGuests->get($guestUserId)) : null;
+
+            if (!$appUser && $customerId) {
+                $potentialGuest = $fallbackGuests->get($customerId) ?? GuestUser::find($customerId);
+                if ($potentialGuest) {
+                    if (!$guestUser) {
+                        $guestUser = $potentialGuest;
+                        $guestUserId = $potentialGuest->id;
+                    }
+                }
+            }
+
+            if (!$guestUser && $guestUserId) {
+                $potentialApp = $fallbackApps->get($guestUserId) ?? AppUser::find($guestUserId);
+                if ($potentialApp) {
+                    if (!$appUser) {
+                        $appUser = $potentialApp;
+                        $customerId = $potentialApp->id;
+                    }
+                }
+            }
+
+            if ($appUser && !$guestUser && !empty($appUser->email)) {
+                $matchedGuest = $crossGuests->get($appUser->email) ?? GuestUser::where('email', $appUser->email)->first();
+                if ($matchedGuest) {
+                    $guestUser = $matchedGuest;
+                    $guestUserId = $matchedGuest->id;
+                }
+            } elseif ($guestUser && !$appUser && !empty($guestUser->email)) {
+                $matchedApp = $crossApps->get($guestUser->email) ?? AppUser::where('email', $guestUser->email)->first();
+                if ($matchedApp) {
+                    $appUser = $matchedApp;
+                    $customerId = $matchedApp->id;
+                }
+            }
+
+            if (empty($customerId)) {
+                $customerId = $guestUserId ?: ($order->customer_id ?: ($order->guestuser_id ?: 0));
+            }
+            if (empty($guestUserId)) {
+                $guestUserId = $customerId ?: ($order->guestuser_id ?: ($order->customer_id ?: 0));
+            }
+
+            $order->customer_id = (int) $customerId;
+            $order->guestuser_id = (int) $guestUserId;
+
+            if ($appUser) {
+                $appUserCopy = clone $appUser;
+                $appUserCopy->makeHidden(['email_verified_at', 'otp', 'lat', 'lang', 'provider', 'provider_token', 'device_token', 'fcm_token', 'bio', 'language', 'is_verify', 'status', 'created_at', 'updated_at', 'deleted_at', 'following', 'favorite', 'favorite_blog', 'address']);
+                $appUserCopy->last_name = $appUserCopy->last_name ?? '';
+                $appUserCopy->image = $appUserCopy->image ?? 'defaultuser.png';
+                $appUserCopy->phone = $appUserCopy->phone ?? ($guestUser ? ($guestUser->phone ?? '') : '');
+                $order->setRelation('customer', $appUserCopy);
+            } elseif ($guestUser) {
+                $customerObj = (object) [
+                    'id' => (int) $guestUser->id,
+                    'name' => $guestUser->name ?? '',
+                    'last_name' => $guestUser->last_name ?? '',
+                    'email' => $guestUser->email ?? '',
+                    'image' => 'defaultuser.png',
+                    'phone' => $guestUser->phone ?? '',
+                    'imagePath' => url('images/upload') . '/',
+                ];
+                $order->setRelation('customer', $customerObj);
+            } else {
+                $order->setRelation('customer', (object) [
+                    'id' => (int) $order->customer_id,
+                    'name' => '',
+                    'last_name' => '',
+                    'email' => '',
+                    'image' => 'defaultuser.png',
+                    'phone' => '',
+                    'imagePath' => url('images/upload') . '/',
+                ]);
+            }
+
+            if ($guestUser) {
+                $guestUserCopy = clone $guestUser;
+                $guestUserCopy->makeHidden(['created_at', 'updated_at', 'fcm_token', 'is_guest_user', 'deleted_at']);
+                $guestUserCopy->last_name = $guestUserCopy->last_name ?? '';
+                $guestUserCopy->phone = $guestUserCopy->phone ?? ($appUser ? ($appUser->phone ?? '') : '');
+                $order->setRelation('guestUser', $guestUserCopy);
+            } elseif ($appUser) {
+                $guestObj = (object) [
+                    'id' => (int) $appUser->id,
+                    'name' => $appUser->name ?? '',
+                    'last_name' => $appUser->last_name ?? '',
+                    'email' => $appUser->email ?? '',
+                    'phone' => $appUser->phone ?? '',
+                ];
+                $order->setRelation('guestUser', $guestObj);
+            } else {
+                $order->setRelation('guestUser', (object) [
+                    'id' => (int) $order->guestuser_id,
+                    'name' => '',
+                    'last_name' => '',
+                    'email' => '',
+                    'phone' => '',
+                ]);
+            }
+
+            // Seats resolution
+            $rawBookSeats = $order->book_seats;
+            $rawSeatDetails = $order->seat_details;
+            $decodedSeatDetails = [];
+
+            if (!empty($rawSeatDetails)) {
+                if (is_string($rawSeatDetails)) {
+                    $cleanJson = html_entity_decode($rawSeatDetails, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $decoded = json_decode($cleanJson, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        $decodedSeatDetails = $decoded;
+                    } else {
+                        $decoded = json_decode($rawSeatDetails, true);
+                        if (is_array($decoded)) {
+                            $decodedSeatDetails = $decoded;
+                        }
+                    }
+                } elseif (is_array($rawSeatDetails)) {
+                    $decodedSeatDetails = $rawSeatDetails;
+                }
+            }
+
+            // Normalize order-level seat details
+            $normalizedOrderSeats = [];
+            foreach ($decodedSeatDetails as $s) {
+                if (is_array($s)) {
+                    $label = $s['label'] ?? ($s['seat_label'] ?? null);
+                    $section = $s['section'] ?? ($s['section_name'] ?? '');
+                    $row = $s['row'] ?? ($s['row_name'] ?? '');
+                    $seatNumber = (string) ($s['seat_number'] ?? '');
+                    if (!$label && ($section || $row || $seatNumber)) {
+                        $label = trim($section . ' ' . $row . '-' . $seatNumber);
+                    }
+                    $normalizedOrderSeats[] = [
+                        'id' => (string) ($s['id'] ?? ($s['seat_id'] ?? '')),
+                        'label' => (string) ($label ?? ''),
+                        'section' => (string) $section,
+                        'row' => (string) $row,
+                        'seat_number' => $seatNumber,
+                        'ticket_id' => (string) ($s['ticket_id'] ?? $order->ticket_id ?? ''),
+                    ];
+                }
+            }
+
+            $childSeatLabels = [];
+            $childVenueSeatIds = [];
+            if ($order->relationLoaded('orderChild') && $order->orderChild) {
+                foreach ($order->orderChild as $child) {
+                    if (!empty($child->Book_Seat_Id)) {
+                        $childSeatLabels[] = $child->Book_Seat_Id;
+                    }
+                    if (!empty($child->event_venue_seat_id)) {
+                        $childVenueSeatIds[] = $child->event_venue_seat_id;
+                    }
+                }
+            }
+
+            if (empty($normalizedOrderSeats) && !empty($childVenueSeatIds)) {
+                $matchedVenueSeats = collect($childVenueSeatIds)->map(fn($sid) => $venueSeats->get($sid))->filter();
+                foreach ($matchedVenueSeats as $s) {
+                    $normalizedOrderSeats[] = [
+                        'id' => (string) $s->id,
+                        'label' => $s->seat_label ?: trim(($s->section_name ?? '') . ' ' . ($s->row_name ?? '') . '-' . ($s->seat_number ?? '')),
+                        'section' => (string) ($s->section_name ?? ''),
+                        'row' => (string) ($s->row_name ?? ''),
+                        'seat_number' => (string) ($s->seat_number ?? ''),
+                        'ticket_id' => (string) ($s->ticket_id ?? ''),
+                    ];
+                }
+            }
+
+            if (empty($normalizedOrderSeats) && !empty($childSeatLabels)) {
+                foreach (array_values(array_unique($childSeatLabels)) as $label) {
+                    $normalizedOrderSeats[] = [
+                        'id' => (string) $label,
+                        'label' => (string) $label,
+                        'section' => 'Reserved',
+                        'row' => '',
+                        'seat_number' => (string) $label,
+                        'ticket_id' => (string) $order->ticket_id,
+                    ];
+                }
+            }
+
+            // Associate seats strictly and accurately with each individual child ticket
+            $usedSeatIndices = [];
+            $assignedChildSeats = [];
+
+            if ($order->relationLoaded('orderChild') && $order->orderChild) {
+                foreach ($order->orderChild as $child) {
+                    if (empty($child->customer_id)) {
+                        $child->customer_id = (int) $order->customer_id;
+                    }
+                    if (empty($child->guestuser_id)) {
+                        $child->guestuser_id = (int) $order->guestuser_id;
+                    }
+                    if ($child->checkin === null) {
+                        $child->checkin = 0;
+                    }
+
+                    $matchedChildSeat = null;
+
+                    // 1. Match by event_venue_seat_id
+                    if (!empty($child->event_venue_seat_id)) {
+                        foreach ($normalizedOrderSeats as $idx => $s) {
+                            if (!in_array($idx, $usedSeatIndices) && (string) $s['id'] === (string) $child->event_venue_seat_id) {
+                                $matchedChildSeat = $s;
+                                $usedSeatIndices[] = $idx;
+                                break;
+                            }
+                        }
+                        if (!$matchedChildSeat && $venueSeats->has($child->event_venue_seat_id)) {
+                            $vs = $venueSeats->get($child->event_venue_seat_id);
+                            $matchedChildSeat = [
+                                'id' => (string) $vs->id,
+                                'label' => $vs->seat_label ?: trim(($vs->section_name ?? '') . ' ' . ($vs->row_name ?? '') . '-' . ($vs->seat_number ?? '')),
+                                'section' => (string) ($vs->section_name ?? ''),
+                                'row' => (string) ($vs->row_name ?? ''),
+                                'seat_number' => (string) ($vs->seat_number ?? ''),
+                                'ticket_id' => (string) ($vs->ticket_id ?? $child->ticket_id ?? ''),
+                            ];
+                        }
+                    }
+
+                    // 2. Match by Book_Seat_Id if not matched yet
+                    if (!$matchedChildSeat && !empty($child->Book_Seat_Id)) {
+                        foreach ($normalizedOrderSeats as $idx => $s) {
+                            if (!in_array($idx, $usedSeatIndices) && ($s['label'] === $child->Book_Seat_Id || ($s['seat_label'] ?? '') === $child->Book_Seat_Id)) {
+                                $matchedChildSeat = $s;
+                                $usedSeatIndices[] = $idx;
+                                break;
+                            }
+                        }
+                        if (!$matchedChildSeat) {
+                            $matchedChildSeat = [
+                                'id' => (string) $child->Book_Seat_Id,
+                                'label' => (string) $child->Book_Seat_Id,
+                                'section' => 'Reserved',
+                                'row' => '',
+                                'seat_number' => (string) $child->Book_Seat_Id,
+                                'ticket_id' => (string) $child->ticket_id,
+                            ];
+                        }
+                    }
+
+                    // 3. Match 1-to-1 only if entire order had matching seated count
+                    if (!$matchedChildSeat && empty($child->Book_Seat_Id) && empty($child->event_venue_seat_id)) {
+                        if (count($order->orderChild) === count($normalizedOrderSeats)) {
+                            foreach ($normalizedOrderSeats as $idx => $s) {
+                                if (!in_array($idx, $usedSeatIndices)) {
+                                    $matchedChildSeat = $s;
+                                    $usedSeatIndices[] = $idx;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($matchedChildSeat) {
+                        $child->Book_Seat_Id = $matchedChildSeat['label'];
+                        $child->seat_details = [$matchedChildSeat];
+                        $assignedChildSeats[] = $matchedChildSeat;
+                    } else {
+                        $child->Book_Seat_Id = null;
+                        $child->seat_details = [];
+                    }
+
+                    if (empty($child->event_venue_seat_id)) {
+                        $child->event_venue_seat_id = 0;
+                    }
+                    $child->makeHidden(['created_at', 'updated_at', 'SeatDetails_id', 'seat_id']);
+                }
+            }
+
+            // Final order-level seat fields
+            $finalOrderSeats = !empty($assignedChildSeats) ? $assignedChildSeats : $normalizedOrderSeats;
+            if (!empty($finalOrderSeats)) {
+                $order->seat_details = array_values($finalOrderSeats);
+                $labels = array_filter(array_column($finalOrderSeats, 'label'));
+                $order->book_seats = !empty($labels) ? implode(', ', $labels) : null;
+            } else {
+                $order->seat_details = [];
+                $order->book_seats = null;
+            }
+
+            // Fallback for order.ticket when order.ticket_id is comma-separated
+            if ((!$order->relationLoaded('ticket') || !$order->ticket) && $order->relationLoaded('orderChild') && $order->orderChild && $order->orderChild->isNotEmpty()) {
+                $firstTicket = $order->orderChild->first(fn($c) => !empty($c->ticket))?->ticket;
+                if ($firstTicket) {
+                    $order->setRelation('ticket', $firstTicket);
+                }
+            }
+
+            if (empty($order->ticket_date)) {
+                $childDate = ($order->relationLoaded('orderChild') && $order->orderChild)
+                    ? $order->orderChild->pluck('ticket_date')->filter()->first()
+                    : null;
+                if ($childDate) {
+                    $order->ticket_date = $childDate;
+                } elseif ($event && !empty($event->start_time)) {
+                    $order->ticket_date = $event->start_time;
+                }
+            }
+
+            if (empty($order->checkins_count) && $order->relationLoaded('orderChild') && $order->orderChild) {
+                $actualCheckins = $order->orderChild->filter(fn($c) => $c->status == 1 || !empty($c->checkin))->count();
+                if ($actualCheckins > 0) {
+                    $order->checkins_count = $actualCheckins;
+                }
+            }
+
+            $order->setAppends([])->makeHidden(['payment_type', 'updated_at', 'payment_token', 'coupon_discount', 'coupon_id', 'review']);
+        }
+
+        return $orders;
     }
 
     public function eventTickets($id)
@@ -1767,9 +2283,534 @@ class OrganizationApiController extends Controller
      *
      * Referenced from UserController::organizerCreateOrder
      */
-    public function createOrderOrganizer(Request $request)
+    // public function createOrderOrganizer(Request $request)
+    // {
+    //     Log::info('=== createOrderOrganizer request received ===', $request->all());
+
+    //     $request->validate([
+    //         'ticket_id' => 'bail|required',
+    //         'email' => 'bail|required|email',
+    //         'name' => 'bail|nullable|string',
+    //         'phone' => 'bail|required|string',
+    //         'quantity' => 'bail|required',
+    //         'tax_option' => 'bail|nullable|in:with_tax,without_tax,complimentary,custom_amount',
+    //         'tax_custom_amount' => 'required_if:tax_option,custom_amount|nullable|numeric|min:0',
+    //         'seat_ids' => 'nullable',
+    //         'event_seat_id' => 'nullable',
+    //         'venue_seat_ids' => 'nullable',
+    //         'book_seats' => 'nullable',
+    //     ]);
+
+    //     $data = $request->except([
+    //         'tax_data', 'tax_ids', 'venue_seat_ids', 'guest_hold_key',
+    //         'email', 'name', 'phone', 'seat_ids', 'event_seat_id'
+    //     ]);
+
+    //     $rawTicketIds = is_array($request->ticket_id) ? $request->ticket_id : explode(',', (string) $request->ticket_id);
+    //     $firstTicketId = (int) reset($rawTicketIds);
+    //     $ticket = Ticket::find($firstTicketId);
+
+    //     if (!$ticket) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => 'Ticket not found'
+    //         ], 404);
+    //     }
+
+    //     // Validate seat availability if specific venue map seats are passed
+    //     $seatIds = [];
+    //     if ($request->has('seat_details') && !empty($request->seat_details)) {
+    //         $detailsArray = is_string($request->seat_details) ? json_decode($request->seat_details, true) : $request->seat_details;
+    //         if (is_array($detailsArray)) {
+    //             foreach ($detailsArray as $sDetail) {
+    //                 if (is_array($sDetail) && isset($sDetail['seat_id'])) {
+    //                     $seatIds[] = (int) $sDetail['seat_id'];
+    //                 } elseif (is_object($sDetail) && isset($sDetail->seat_id)) {
+    //                     $seatIds[] = (int) $sDetail->seat_id;
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     if (empty($seatIds)) {
+    //         $rawSeatInput = $request->input('venue_seat_ids', $request->input('book_seats', $request->input('seat_ids', $request->input('event_seat_id'))));
+    //         if (!empty($rawSeatInput)) {
+    //             if (is_array($rawSeatInput)) {
+    //                 $seatIds = array_map('intval', $rawSeatInput);
+    //             } else {
+    //                 $seatIds = array_filter(array_map('intval', explode(',', (string) $rawSeatInput)));
+    //             }
+    //         }
+    //     }
+
+    //     $requestedSeats = collect();
+    //     if (!empty($seatIds)) {
+    //         $requestedSeats = \App\Models\EventVenueSeat::where('event_id', $ticket->event_id)
+    //             ->whereIn('id', $seatIds)
+    //             ->get()
+    //             ->values();
+
+    //         if ($requestedSeats->count() !== count($seatIds)) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'msg' => 'One or more requested seats were not found for this event.'
+    //             ], 400);
+    //         }
+
+    //         foreach ($requestedSeats as $seatItem) {
+    //             if ($seatItem->status === \App\Models\EventVenueSeat::STATUS_BOOKED) {
+    //                 return response()->json([
+    //                     'success' => false,
+    //                     'msg' => "Seat '{$seatItem->seat_label}' is already booked."
+    //                 ], 400);
+    //             }
+    //             if ($seatItem->status === \App\Models\EventVenueSeat::STATUS_BLOCKED) {
+    //                 return response()->json([
+    //                     'success' => false,
+    //                     'msg' => "Seat '{$seatItem->seat_label}' is blocked and unavailable."
+    //                 ], 400);
+    //             }
+    //         }
+    //     }
+
+    //     // Validate ticket quantity availability
+    //     $totalTicketQuantity = $ticket->quantity;
+
+    //     // Sum of all quantities from orders for this ticket (handle comma-separated ticket_ids)
+    //     $bookedQuantity = 0;
+    //     $orders = Order::where('event_id', $ticket->event_id)->get();
+
+    //     foreach ($orders as $order) {
+    //         $ticketIds = explode(',', $order->ticket_id);
+    //         $quantities = explode(',', $order->quantity);
+
+    //         foreach ($ticketIds as $index => $tid) {
+    //             if ((int)trim($tid) === $ticket->id) {
+    //                 if (isset($quantities[$index])) {
+    //                     $bookedQuantity += (int)trim($quantities[$index], '"');
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     $requestedQuantity = is_array($request->quantity) ? (int) array_sum($request->quantity) : (int) $request->quantity;
+    //     $availableQuantity = $totalTicketQuantity - $bookedQuantity;
+
+    //     // Check if requested quantity exceeds available quantity
+    //     if ($requestedQuantity > $availableQuantity) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => "Only {$availableQuantity} tickets available. You requested {$requestedQuantity} tickets."
+    //         ], 400);
+    //     }
+
+    //     $event = Event::find($ticket->event_id);
+
+    //     if (!$event) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => 'Event not found'
+    //         ], 404);
+    //     }
+
+    //     $org = User::find($event->user_id);
+
+    //     // Verify that the authenticated user is admin or owns this event
+    //     // Admin check: user_id = 1 OR has 'admin' role
+    //     $isAdmin = (Auth::user()->id === 1) || Auth::user()->hasRole('admin');
+    //     $isEventOwner = Auth::user()->id === $org->id;
+
+    //     if (!$isAdmin && !$isEventOwner) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => 'Unauthorized. You can only create orders for your own events.',
+    //             'debug' => [
+    //                 'user_id' => Auth::user()->id,
+    //                 'is_admin' => $isAdmin,
+    //                 'is_event_owner' => $isEventOwner,
+    //                 'event_owner_id' => $org->id
+    //             ]
+    //         ], 403);
+    //     }
+
+    //     // Find or create customer by email
+    //     $email = $request->email;
+    //     $appUser = AppUser::where('email', $email)->first();
+
+    //     if (!$appUser) {
+    //         // Create new customer
+    //         $appUser = AppUser::create([
+    //             'email' => $email,
+    //             'password' => bcrypt('123456'),
+    //             'name' => $request->name ?? 'Customer',
+    //             'phone' => $request->phone,
+    //             'provider' => 'LOCAL',
+    //             'is_verify' => 1,
+    //         ]);
+    //     } else {
+    //         // Update existing customer info
+    //         $appUser->update([
+    //             'phone' => $request->phone,
+    //             'name' => $request->name ?? $appUser->name,
+    //         ]);
+    //     }
+
+    //     // Calculate base payment (ticket price * quantity)
+    //     $basePayment = $ticket->price * $requestedQuantity;
+
+    //     // Get tax option (default: with_tax)
+    //     $taxOption = $request->tax_option ?? 'with_tax';
+    //     $totalTax = [];
+
+    //     // Handle tax based on tax_option
+    //     if ($taxOption === 'with_tax') {
+    //         // Apply taxes normally
+    //         $allTax = Tax::where(['status' => 1, 'allow_all_bill' => 1])->get();
+    //         foreach ($allTax as $key => $value) {
+    //             if ($value->amount_type == 'percentage') {
+    //                 $totalTax[$key]['id'] = $value->id;
+    //                 $totalTax[$key]['price'] = $basePayment * $value->price / 100;
+    //             }
+    //             if ($value->amount_type == 'price') {
+    //                 $totalTax[$key]['id'] = $value->id;
+    //                 $totalTax[$key]['price'] = $value->price;
+    //             }
+    //         }
+    //     } elseif ($taxOption === 'without_tax') {
+    //         // No tax applied
+    //         $totalTax = [];
+    //     } elseif ($taxOption === 'custom_amount') {
+    //         // custom_amount: treat as replacement price per ticket
+    //         $customPricePerTicket = isset($request->tax_custom_amount) ? floatval($request->tax_custom_amount) : 0;
+    //         $customTotal = $customPricePerTicket * $requestedQuantity;
+
+    //         // Validate custom price per ticket doesn't exceed original ticket price
+    //         if ($customPricePerTicket > $ticket->price) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'msg' => "Custom amount per ticket ({$customPricePerTicket}) cannot exceed ticket price ({$ticket->price})."
+    //             ], 400);
+    //         }
+
+    //         $totalDiscount = $basePayment - $customTotal; // e.g. (100-50)*6 = 300
+    //         if ($totalDiscount > 0) {
+    //             // Store as negative value so it subtracts from base payment
+    //             $totalTax[] = ['id' => 0, 'price' => -$totalDiscount];
+    //         } else {
+    //             $totalTax = [];
+    //         }
+    //     } elseif ($taxOption === 'complimentary') {
+    //         // Set payment to 0 and no tax
+    //         $basePayment = 0;
+    //         $totalTax = [];
+    //     }
+
+    //     // Calculate total tax amount
+    //     $taxAmount = array_sum(array_column($totalTax, 'price'));
+
+    //     // Calculate commission on base payment (before tax)
+    //     $com = Setting::find(1, ['org_commission_type', 'org_commission']);
+    //     $orgCommission = 0;
+
+    //     if ($taxOption === 'complimentary') {
+    //         $orgCommission = 0;
+    //     } else {
+    //         if ($com->org_commission_type == "percentage") {
+    //             $orgCommission = $basePayment * $com->org_commission / 100;
+    //         } else if ($com->org_commission_type == "amount") {
+    //             $orgCommission = $com->org_commission;
+    //         }
+    //     }
+
+    //     // Set final payment amount
+    //     if ($taxOption === 'complimentary') {
+    //         $finalPayment = 0;
+    //     } else {
+    //         $finalPayment = $basePayment + $taxAmount;
+    //     }
+
+    //     // Prepare order data
+    //     $data['order_id'] = '#' . rand(9999, 100000);
+    //     $data['event_id'] = $event->id;
+    //     $data['customer_id'] = $appUser->id;
+    //     $data['organization_id'] = $org->id;
+    //     // $data['order_status'] = 'Pending';
+    //      $data['order_status'] = 'Complete';
+    //     $data['ticket_id'] = is_array($request->ticket_id) ? implode(',', $request->ticket_id) : $ticket->id;
+    //     $data['quantity'] = $requestedQuantity;
+    //     $data['payment'] = $finalPayment;
+    //     $data['tax'] = $taxAmount;
+    //     $data['org_commission'] = $orgCommission;
+    //     $data['tax_option'] = $taxOption;
+
+    //     if (isset($data['book_seats']) && is_array($data['book_seats'])) {
+    //         $data['book_seats'] = json_encode($data['book_seats']);
+    //     }
+    //     if (isset($data['seat_details']) && is_array($data['seat_details'])) {
+    //         $data['seat_details'] = json_encode($data['seat_details']);
+    //     }
+
+    //     $data['tax_custom_amount'] = $taxOption === 'custom_amount' ? floatval($request->tax_custom_amount ?? 0) : 0;
+
+    //     // Set payment type and status based on tax_option
+    //     if ($taxOption === 'complimentary') {
+    //         $data['payment_type'] = 'FREE';
+    //         $data['payment_status'] = 0; // 0 = FREE / Pending
+    //     } else {
+    //         $data['payment_type'] = 'LOCAL';
+    //         $data['payment_status'] = 0; // 0 = Pending
+    //     }
+
+    //     try {
+    //         $order = Order::create($data);
+
+    //         // Build map of seat_id -> ticket_id from seat_details if present
+    //         $seatTicketMap = [];
+    //         if ($request->has('seat_details') && !empty($request->seat_details)) {
+    //             $detailsArray = is_string($request->seat_details) ? json_decode($request->seat_details, true) : $request->seat_details;
+    //             if (is_array($detailsArray)) {
+    //                 foreach ($detailsArray as $sDetail) {
+    //                     $sId = (int) ($sDetail['seat_id'] ?? $sDetail['seat_id'] ?? 0);
+    //                     if (is_object($sDetail)) {
+    //                         $sId = (int) ($sDetail->seat_id ?? 0);
+    //                         $tId = (int) ($sDetail->ticket_id ?? 0);
+    //                     } else {
+    //                         $tId = (int) ($sDetail['ticket_id'] ?? 0);
+    //                     }
+    //                     if ($sId > 0 && $tId > 0) {
+    //                         $seatTicketMap[$sId] = $tId;
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         // Build array of ticket_ids corresponding to each child index
+    //         $expandedTicketIds = [];
+    //         if (is_array($request->ticket_id) && is_array($request->quantity)) {
+    //             foreach ($request->ticket_id as $idx => $tId) {
+    //                 $qty = isset($request->quantity[$idx]) ? (int) $request->quantity[$idx] : 1;
+    //                 for ($q = 0; $q < $qty; $q++) {
+    //                     $expandedTicketIds[] = (int) $tId;
+    //                 }
+    //             }
+    //         }
+
+    //         // Create OrderChild records for each ticket quantity
+    //         for ($i = 0; $i < $requestedQuantity; $i++) {
+    //             $child = [];
+    //             $child['ticket_number'] = uniqid();
+    //             $child['order_id'] = $order->id;
+    //             $child['customer_id'] = $appUser->id;
+
+    //             $assignedSeat = null;
+    //             $childTicketId = $expandedTicketIds[$i] ?? $ticket->id;
+
+    //             if (isset($requestedSeats[$i])) {
+    //                 $assignedSeat = $requestedSeats[$i];
+    //                 if (isset($seatTicketMap[$assignedSeat->id])) {
+    //                     $childTicketId = $seatTicketMap[$assignedSeat->id];
+    //                 }
+    //                 $seatLabel = $assignedSeat->seat_label ?: trim($assignedSeat->section_name . ' ' . $assignedSeat->row_name . ' Seat ' . $assignedSeat->seat_number);
+
+    //                 $child['event_venue_seat_id'] = $assignedSeat->id;
+    //                 $child['seat_id'] = $assignedSeat->id;
+    //                 $child['Book_Seat_Id'] = $seatLabel;
+    //             }
+
+    //             $childTicket = Ticket::find($childTicketId) ?: $ticket;
+    //             $child['ticket_id'] = $childTicket->id;
+    //             $child['checkin'] = $childTicket->maximum_checkins ?? null;
+    //             $child['paid'] = 1;
+
+    //             $createdChild = \App\Models\OrderChild::create($child);
+
+    //             if ($assignedSeat) {
+    //                 $assignedSeat->update([
+    //                     'status' => \App\Models\EventVenueSeat::STATUS_BOOKED,
+    //                     'booked_order_id' => $order->id,
+    //                     'booked_order_child_id' => $createdChild->id,
+    //                     'booked_at' => now(),
+    //                     'hold_token' => null,
+    //                     'held_by_session_id' => null,
+    //                     'held_by_app_user_id' => null,
+    //                     'held_by_guest_user_id' => null,
+    //                     'held_at' => null,
+    //                     'hold_expires_at' => null,
+    //                 ]);
+    //             }
+    //         }
+
+    //         // Create OrderTax records
+    //         if (!empty($totalTax)) {
+    //             foreach ($totalTax as $value) {
+    //                 $tax['order_id'] = $order->id;
+    //                 $tax['tax_id'] = $value['id'];
+    //                 $tax['price'] = $value['price'];
+    //                 OrderTax::create($tax);
+    //             }
+    //         }
+
+    //         // Send email notifications
+    //         $setting = Setting::find(1);
+
+    //         // Send user notification
+    //         $ticketBookTemplate = NotificationTemplate::where('title', 'Book Ticket')->first();
+    //         $detail['user_name'] = $appUser->name . ' ' . ($appUser->last_name ?? '');
+    //         $detail['quantity'] = $requestedQuantity;
+    //         $detail['event_name'] = $event->name;
+    //         $detail['date'] = $event->start_time->format('d F Y h:i a');
+    //         $detail['app_name'] = $setting->app_name;
+    //         $noti_data = ["{{user_name}}", "{{quantity}}", "{{event_name}}", "{{date}}", "{{app_name}}"];
+    //         $message1 = $ticketBookTemplate
+    //             ? str_replace($noti_data, $detail, $ticketBookTemplate->message_content)
+    //             : "Ticket booked for {$event->name}.";
+
+    //         $notification = array();
+    //         $notification['organizer_id'] = null;
+    //         $notification['user_id'] = $appUser->id;
+    //         $notification['order_id'] = $order->id;
+    //         $notification['title'] = 'Ticket Booked';
+    //         $notification['message'] = $message1;
+    //         Notification::create($notification);
+
+    //         // Send push notification
+    //         if ($setting->push_notification == 1 && $appUser->device_token != null) {
+    //             (new AppHelper)->sendOneSignal('user', $appUser->device_token, $message1);
+    //         }
+
+    //         // Send user email
+    //         if ($setting->mail_notification == 1) {
+    //             (new AppHelper)->mailConfig();
+
+    //             try {
+    //                 $details['user_name'] = $appUser->name . ' ' . ($appUser->last_name ?? '');
+    //                 $details['quantity'] = $requestedQuantity;
+    //                 $details['event_name'] = $event->name;
+    //                 $details['date'] = $event->start_time->format('d F Y h:i a');
+    //                 $details['app_name'] = $setting->app_name;
+
+    //                 if ($ticketBookTemplate) {
+    //                     $qrcode = $order->order_id;
+    //                     Mail::to($appUser->email)->send(new TicketBook($ticketBookTemplate->mail_content, $details, $ticketBookTemplate->subject, $qrcode));
+    //                 }
+    //             } catch (\Throwable $th) {
+    //                 // Silent fail
+    //             }
+
+    //             // Send QR PDFs + invoice PDF in ONE email
+    //             try {
+    //                 $this->sendTicketQrAndInvoiceMailApi($order->id);
+    //             } catch (\Throwable $th) {
+    //                 // Silent fail
+    //             }
+    //         }
+
+    //         // Send organizer notification
+    //         $organizerBookTemplate = NotificationTemplate::where('title', 'Organizer Book Ticket')->first();
+    //         $or_detail['organizer_name'] = $org->organization_name ?? $org->first_name . ' ' . $org->last_name;
+    //         $or_detail['user_name'] = $appUser->name . ' ' . ($appUser->last_name ?? '');
+    //         $or_detail['quantity'] = $requestedQuantity;
+    //         $or_detail['event_name'] = $event->name;
+    //         $or_detail['date'] = $event->start_time->format('d F Y h:i a');
+    //         $or_detail['app_name'] = $setting->app_name;
+    //         $or_noti_data = ["{{organizer_name}}", "{{user_name}}", "{{quantity}}", "{{event_name}}", "{{date}}", "{{app_name}}"];
+    //         $or_message1 = $organizerBookTemplate
+    //             ? str_replace($or_noti_data, $or_detail, $organizerBookTemplate->message_content)
+    //             : "New ticket booked for {$event->name}.";
+
+    //         $or_notification = array();
+    //         $or_notification['organizer_id'] = $org->id;
+    //         $or_notification['user_id'] = null;
+    //         $or_notification['order_id'] = $order->id;
+    //         $or_notification['title'] = 'New Ticket Booked';
+    //         $or_notification['message'] = $or_message1;
+    //         Notification::create($or_notification);
+
+    //         // Send organizer push notification
+    //         if ($setting->push_notification == 1 && $org->device_token != null) {
+    //             (new AppHelper)->sendOneSignal('organizer', $org->device_token, $or_message1);
+    //         }
+
+    //         // Send organizer email
+    //         if ($setting->mail_notification == 1) {
+    //             try {
+    //                 $details1['organizer_name'] = $org->organization_name ?? $org->first_name . ' ' . $org->last_name;
+    //                 $details1['user_name'] = $appUser->name . ' ' . ($appUser->last_name ?? '');
+    //                 $details1['quantity'] = $requestedQuantity;
+    //                 $details1['event_name'] = $event->name;
+    //                 $details1['date'] = $event->start_time->format('d F Y h:i a');
+    //                 $details1['app_name'] = $setting->app_name;
+
+    //                 if ($organizerBookTemplate) {
+    //                     Mail::to($org->email)->send(new TicketBookOrg($organizerBookTemplate->mail_content, $details1, $organizerBookTemplate->subject));
+    //                 }
+    //             } catch (\Throwable $th) {
+    //                 // Silent fail
+    //             }
+    //         }
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'msg' => 'Order created successfully',
+    //             'data' => [
+    //                 'order' => $order,
+    //                 'tax_option' => $taxOption,
+    //                 'base_payment' => $basePayment,
+    //                 'tax_amount' => $taxAmount,
+    //                 'final_payment' => $finalPayment,
+    //                 'order_id' => $order->order_id,
+    //                 'payment_type' => $data['payment_type']
+    //             ]
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to create organizer API order', [
+    //             'ticket_id' => $request->ticket_id,
+    //             'email' => $request->email,
+    //             'quantity' => $request->quantity,
+    //             'tax_option' => $request->tax_option,
+    //             'error' => $e->getMessage(),
+    //         ]);
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'msg' => 'Failed to create order. Please try again.'
+    //         ], 500);
+    //     }
+    // }
+     public function createOrderOrganizer(Request $request)
     {
         Log::info('=== createOrderOrganizer request received ===', $request->all());
+
+        // Support strategy alias if provided under tax_configuration_strategy or human-readable names
+        if (!$request->has('tax_option') && $request->has('tax_configuration_strategy')) {
+            $request->merge(['tax_option' => $request->input('tax_configuration_strategy')]);
+        }
+
+        if ($request->has('tax_option')) {
+            $strategyMap = [
+                'standard configuration (with tax)' => 'with_tax',
+                'standard pricing system (with tax)' => 'with_tax',
+                'tax exempt (without tax)' => 'without_tax',
+                'tax exempt operational profile (no tax)' => 'without_tax',
+                'complimentary allocation (free)' => 'complimentary',
+                'system authorized complimentary pass (free)' => 'complimentary',
+                'custom override with manual discount' => 'custom_amount',
+                'manual rate negotiation adjustment' => 'custom_amount',
+            ];
+            $normalizedOption = strtolower(trim((string) $request->input('tax_option')));
+            if (isset($strategyMap[$normalizedOption])) {
+                $request->merge(['tax_option' => $strategyMap[$normalizedOption]]);
+            }
+        }
+
+        // Support custom_adjusted_price / custom_price alias for tax_custom_amount
+        if (!$request->filled('tax_custom_amount')) {
+            if ($request->filled('custom_adjusted_price')) {
+                $request->merge(['tax_custom_amount' => $request->input('custom_adjusted_price')]);
+            } elseif ($request->filled('custom_price')) {
+                $request->merge(['tax_custom_amount' => $request->input('custom_price')]);
+            }
+        }
 
         $request->validate([
             'ticket_id' => 'bail|required',
@@ -1787,7 +2828,8 @@ class OrganizationApiController extends Controller
 
         $data = $request->except([
             'tax_data', 'tax_ids', 'venue_seat_ids', 'guest_hold_key',
-            'email', 'name', 'phone', 'seat_ids', 'event_seat_id'
+            'email', 'name', 'phone', 'seat_ids', 'event_seat_id',
+            'tax_configuration_strategy', 'custom_adjusted_price', 'custom_price'
         ]);
 
         $rawTicketIds = is_array($request->ticket_id) ? $request->ticket_id : explode(',', (string) $request->ticket_id);
@@ -1964,25 +3006,11 @@ class OrganizationApiController extends Controller
             // No tax applied
             $totalTax = [];
         } elseif ($taxOption === 'custom_amount') {
-            // custom_amount: treat as replacement price per ticket
+            // Custom amount: the entered value IS the final ticket price (replaces the original price)
             $customPricePerTicket = isset($request->tax_custom_amount) ? floatval($request->tax_custom_amount) : 0;
-            $customTotal = $customPricePerTicket * $requestedQuantity;
-
-            // Validate custom price per ticket doesn't exceed original ticket price
-            if ($customPricePerTicket > $ticket->price) {
-                return response()->json([
-                    'success' => false,
-                    'msg' => "Custom amount per ticket ({$customPricePerTicket}) cannot exceed ticket price ({$ticket->price})."
-                ], 400);
-            }
-
-            $totalDiscount = $basePayment - $customTotal; // e.g. (100-50)*6 = 300
-            if ($totalDiscount > 0) {
-                // Store as negative value so it subtracts from base payment
-                $totalTax[] = ['id' => 0, 'price' => -$totalDiscount];
-            } else {
-                $totalTax = [];
-            }
+            $basePayment = $customPricePerTicket * $requestedQuantity;
+            // No tax entries for custom_amount - price is already set
+            $totalTax = [];
         } elseif ($taxOption === 'complimentary') {
             // Set payment to 0 and no tax
             $basePayment = 0;
@@ -2018,7 +3046,7 @@ class OrganizationApiController extends Controller
         $data['event_id'] = $event->id;
         $data['customer_id'] = $appUser->id;
         $data['organization_id'] = $org->id;
-        $data['order_status'] = 'Pending';
+        $data['order_status'] = 'Complete';
         $data['ticket_id'] = is_array($request->ticket_id) ? implode(',', $request->ticket_id) : $ticket->id;
         $data['quantity'] = $requestedQuantity;
         $data['payment'] = $finalPayment;

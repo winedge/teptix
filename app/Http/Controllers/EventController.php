@@ -184,18 +184,24 @@ class EventController extends Controller
         $category = Category::where('status', 1)->orderBy('id', 'DESC')->get();
         $users = User::role('Organizer')->where('is_verify', 1)->orderBy('id', 'DESC')->get();
 
+        $selectedOrgIds = array_values(array_unique(array_filter(array_map('intval', (array) old('organizer_ids', [])))));
+
         if (Auth::user()->hasRole('admin')) {
-            // Admin can see all scanners with organizer details
-            $scanner = User::role('scanner')
+            $scannerQuery = User::role('scanner')
                 ->with('organizer:id,first_name,last_name,organization_name,email')
                 ->where('status', 1)
-                ->orderBy('id', 'DESC')
-                ->get();
-        } else if (Auth::user()->hasRole('Organizer')) {
-            // Organizer can only see their own scanners
+                ->orderBy('id', 'DESC');
+
+            if (!empty($selectedOrgIds)) {
+                $scannerQuery->whereIn('org_id', $selectedOrgIds);
+            }
+
+            $scanner = $scannerQuery->get();
+        } else {
+            $orgId = Auth::user()->hasRole('Manager') ? Auth::user()->org_id : Auth::user()->id;
             $scanner = User::role('scanner')
                 ->with('organizer:id,first_name,last_name,organization_name,email')
-                ->where('org_id', Auth::user()->id)
+                ->where('org_id', $orgId)
                 ->where('status', 1)
                 ->orderBy('id', 'DESC')
                 ->get();
@@ -227,8 +233,9 @@ class EventController extends Controller
 
          $request->validate([
             'name' => 'bail|required',
-            'event_logos.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3048',
-            'image' => 'bail|required|image|mimes:jpeg,png,jpg,gif|max:3048',
+            'event_logos.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
+            'image' => 'bail|required|image|mimes:jpeg,png,jpg,gif',
+            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif',
             'start_time' => 'bail|required',
             'end_time' => 'bail|required|after:start_time',
             'category_id' => 'bail|required',
@@ -257,14 +264,6 @@ class EventController extends Controller
             return redirect()->back()->withErrors(['scanner_id' => __('The scanner id field is required when type is offline.')])->withInput();
         }
 
-        // Custom dimension validation
-        if ($request->hasFile('image')) {
-            $imageInfo = getimagesize($request->file('image')->getPathname());
-            if ($imageInfo[0] != 1099 || $imageInfo[1] != 550) {
-                return redirect()->back()->withErrors(['image' => 'Image must be exactly 1099x550 pixels.'])->withInput();
-            }
-        }
-
         $data = $request->all();
         unset($data['event_terms_accepted']);
         if ($request->type == 'offline' || is_array($request->scanner_id)) {
@@ -273,6 +272,9 @@ class EventController extends Controller
         $data['security'] = 1;
         if ($request->hasFile('image')) {
             $data['image'] = (new AppHelper)->saveUploadedFile($request->file('image'));
+        }
+        if ($request->hasFile('thumbnail')) {
+            $data['thumbnail'] = (new AppHelper)->saveUploadedFile($request->file('thumbnail'));
         }
         if ($request->hasFile('event_logo')) {
             $data['event_logo'] = (new AppHelper)->saveUploadedFile($request->file('event_logo'));
@@ -457,8 +459,9 @@ class EventController extends Controller
     $users = User::role('Organizer')->where('is_verify', 1)->orderBy('id', 'DESC')->get();
 
     if (Auth::user()->hasRole('admin')) {
-        $organizerIds = array_filter(array_map('intval', explode(',', (string) $event->user_id)));
+        $organizerIds = array_values(array_unique(array_filter(array_map('intval', explode(',', (string) $event->user_id)))));
         $query = User::role('scanner')
+            ->with('organizer:id,first_name,last_name,organization_name,email')
             ->where('status', 1)
             ->orderBy('id', 'DESC');
 
@@ -467,10 +470,11 @@ class EventController extends Controller
         }
 
         $scanner = $query->get();
-    } elseif (Auth::user()->hasRole('Organizer')) {
-        // Organizer sees only their own scanners
+    } else {
+        $orgId = Auth::user()->hasRole('Manager') ? Auth::user()->org_id : Auth::user()->id;
         $scanner = User::role('scanner')
-            ->where('org_id', Auth::user()->id)
+            ->with('organizer:id,first_name,last_name,organization_name,email')
+            ->where('org_id', $orgId)
             ->where('status', 1)
             ->orderBy('id', 'DESC')
             ->get();
@@ -503,7 +507,9 @@ class EventController extends Controller
 
         $request->validate([
             'name' => 'bail|required',
-            'event_logos.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3048',
+            'image' => 'bail|nullable|image|mimes:jpeg,png,jpg,gif',
+            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif',
+            'event_logos.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
             'start_time' => 'bail|required',
             'end_time' => 'bail|required|after:start_time',
             'category_id' => 'bail|required',
@@ -531,14 +537,6 @@ class EventController extends Controller
             return redirect()->back()->withErrors(['scanner_id' => __('The scanner id field is required when type is offline.')])->withInput();
         }
 
-        // Custom dimension validation for uploaded files
-        if ($request->hasFile('image')) {
-            $imageInfo = getimagesize($request->file('image')->getPathname());
-            if ($imageInfo[0] != 1099 || $imageInfo[1] != 550) {
-                return redirect()->back()->withErrors(['image' => 'Image must be exactly 1099x550 pixels.'])->withInput();
-            }
-        }
-
         $data = $request->all();
         if ($request->type == 'offline' || is_array($request->scanner_id)) {
             $data['scanner_id'] = implode(',', (array) $request->scanner_id);
@@ -551,6 +549,12 @@ class EventController extends Controller
         if ($request->hasFile('image')) {
             (new AppHelper)->deleteFile($event->image);
             $data['image'] = (new AppHelper)->saveImage($request->file('image'));
+        }
+        if ($request->hasFile('thumbnail')) {
+            if (!empty($event->thumbnail)) {
+                (new AppHelper)->deleteFile($event->thumbnail);
+            }
+            $data['thumbnail'] = (new AppHelper)->saveImage($request->file('thumbnail'));
         }
         if ($request->hasFile('event_logos')) {
             $existing = array_filter(explode(',', $event->event_logos ?? ''));
@@ -840,6 +844,7 @@ class EventController extends Controller
 
             if (Auth::user()->hasRole('admin')) {
                 $query = User::role('scanner')
+                    ->with('organizer:id,first_name,last_name,organization_name,email')
                     ->where('status', 1)
                     ->orderBy('id', 'DESC')
                     ->select('id', 'first_name', 'last_name', 'email', 'org_id');
@@ -883,19 +888,26 @@ class EventController extends Controller
                     if (empty($fullName)) {
                         $fullName = $scanner->email ?? ('Scanner #' . $scanner->id);
                     }
+                    $orgName = '';
+                    if ($scanner->organizer) {
+                        $orgName = trim($scanner->organizer->organization_name ?: ($scanner->organizer->first_name . ' ' . $scanner->organizer->last_name));
+                    }
+                    $displayName = $fullName . (!empty($orgName) ? ' (' . $orgName . ')' : '');
+
                     return [
                         'id' => $scanner->id,
                         'first_name' => $scanner->first_name ?? '',
                         'last_name' => $scanner->last_name ?? '',
-                        'name' => $fullName,
+                        'name' => $displayName,
                         'email' => $scanner->email,
                         'org_id' => $scanner->org_id,
+                        'organizer_name' => $orgName,
                     ];
                 });
-            } else if (Auth::user()->hasRole('Organizer')) {
-                // Organizer can only see their own scanners
+            } else if (Auth::user()->hasRole('Organizer') || Auth::user()->hasRole('Manager')) {
+                $orgId = Auth::user()->hasRole('Manager') ? Auth::user()->org_id : Auth::user()->id;
                 $scanners = User::role('scanner')
-                    ->where('org_id', Auth::user()->id)
+                    ->where('org_id', $orgId)
                     ->where('status', 1)
                     ->orderBy('id', 'DESC')
                     ->select('id', 'first_name', 'last_name', 'email', 'org_id')

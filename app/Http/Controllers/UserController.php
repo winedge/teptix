@@ -1163,7 +1163,17 @@ class UserController extends Controller
 
     public function getScanner($id)
     {
-        $data = User::where('org_id', $id)->orderBy('id', 'DESC')->get();
+        if (empty($id)) {
+            return response()->json(['data' => [], 'success' => true], 200);
+        }
+        $ids = is_array($id) ? $id : explode(',', (string) $id);
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+
+        $query = User::role('scanner')->where('status', 1)->orderBy('id', 'DESC');
+        if (!empty($ids)) {
+            $query->whereIn('org_id', $ids);
+        }
+        $data = $query->get();
         return response()->json(['data' => $data, 'success' => true], 200);
     }
 

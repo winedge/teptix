@@ -1,5 +1,5 @@
 @extends('frontend.master', ['activePage' => 'event'])
-@section('title', __('All Events'))
+@section('title', request('event_type') == 'past' ? __('Past Events') : __('All Events'))
 @section('content')
 
     <div class="" style="background-image: url('https://teptix.com/images/events.png')">
@@ -14,7 +14,7 @@
             <div class="flex justify-start pt-5 z-10">
                 <p
                     class="font-poppins font-semibold md:text-5xl xxsm:text-2xl xsm:text-2xl sm:text-2xl text-blue leading-10 ">
-                    {{ __('Events') }}</p>&nbsp;&nbsp;
+                    {{ request('event_type') == 'past' ? __('Past Events') : __('Events') }}</p>&nbsp;&nbsp;
                 <p
                     class="font-poppins font-medium md:text-2xl xxsm:text-xl xsm:text-xl sm:text-xl text-blue leading-10 pt-3">
                     ( {{ $events->count() }} )</p>
@@ -26,7 +26,7 @@
                         <button
                             class="inline-block p-4 px-6 py-3 rounded-md z-20 font-poppins shadow-md focus:outline-none relative"
                             id="all_events" data-tabs-target="#events" type="button" role="tab" aria-controls="events"
-                            aria-selected="false">{{ __('All Events') }}</button>
+                            aria-selected="false">{{ request('event_type') == 'past' ? __('All Past Events') : __('All Events') }}</button>
                     </li>
                     <li class="mr-2">
                         <button

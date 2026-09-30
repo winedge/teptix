@@ -104,8 +104,8 @@
                                 <div
                                     class="shadow-2xl p-5 rounded-lg bg-white flex sm:flex-nowrap msm:flex-wrap xxsm:flex-wrap">
                                     <div>
-                                        <img src="{{ url('images/upload/' . $item->event->image_2) }}" alt=""
-                                            class=" w-40 object-cover bg-cover rounded-lg">
+                                        <img src="{{ url('images/upload/' . ($item->event->image_2 ?: $item->event->image)) }}" alt=""
+                                            class="w-40 h-28 object-cover bg-cover rounded-lg flex-shrink-0">
                                     </div>
                                     <a href="{{ url('/my-ticket/' . $item->id) }}">
                                         <div class="sm:ml-5 msm:ml-0 xxsm:ml-0 msm:mt-3 xxsm:mt-3 sm:mt-0">
@@ -164,7 +164,7 @@
                                     class="shadow-2xl p-5 rounded-lg bg-white flex sm:flex-nowrap msm:flex-wrap xxsm:flex-wrap ">
                                     <div>
                                         <img src="{{ url('images/upload/' . $item->event->image) }}" alt=""
-                                            class=" w-40 object-cover bg-cover rounded-lg">
+                                            class="w-40 h-28 object-cover bg-cover rounded-lg flex-shrink-0">
                                     </div>
                                     <a href="{{ url('/my-ticket/' . $item->id) }}">
                                         <div class="sm:ml-5 msm:ml-0 xxsm:ml-0 msm:mt-3 xxsm:mt-3 sm:mt-0">

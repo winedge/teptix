@@ -39,15 +39,30 @@
                                                 <label for="image-upload" id="image-label">
                                                     <i class="fas fa-plus"></i>
                                                 </label>
-                                                <input type="file" name="image" id="image-upload" />
+                                                <input type="file" name="image" id="image-upload" accept="image/*" />
                                             </div>
                                             @error('image')
                                                 <div class="invalid-feedback block">{{ $message }}</div>
                                             @enderror
-                                            <small class="text-muted">Required dimension: 1099x550px</small>
+                                            <small class="text-muted">{{ __('Supported formats: JPG, JPEG, PNG, GIF') }}</small>
                                         </div>
                                     </div>
-                                    <div class="col-lg-8">
+                                    <div class="col-lg-4">
+                                        <label>{{ __('Homepage Thumbnail') }}</label>
+                                        <div class="row form-group center">
+                                            <div id="thumbnail-preview" class="image-preview">
+                                                <label for="thumbnail-upload" id="thumbnail-label">
+                                                    <i class="fas fa-plus"></i>
+                                                </label>
+                                                <input type="file" name="thumbnail" id="thumbnail-upload" accept="image/*" />
+                                            </div>
+                                            @error('thumbnail')
+                                                <div class="invalid-feedback block">{{ $message }}</div>
+                                            @enderror
+                                            <small class="text-muted">{{ __('Recommended: 800x500px (16:10 ratio) so it isn\'t cropped on the homepage. Falls back to the main image if left blank.') }}</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4">
                                         <label>{{ __('Sponsor / Partner Logos') }} <small class="text-muted">({{ __('Upload multiple logos, 200x200px each') }})</small></label>
                                         @error('event_logos.*')
                                             <div class="invalid-feedback block d-block">{{ $message }}</div>
@@ -63,7 +78,7 @@
                                                 <button type="button" class="btn btn-sm btn-success add-logo-btn"><i class="fas fa-plus"></i> {{ __('Add Logo') }}</button>
                                             </div>
                                         </div>
-                                        <small class="text-muted">{{ __('Required dimension: 200x200px') }}</small>
+                                        <small class="text-muted">{{ __('Add or remove logos.') }}</small>
                                     </div>
 
                                     <div class="col-lg-6">
@@ -123,9 +138,15 @@
                                         <label>{{ __('Organizer') }} <small class="text-muted">({{ __('Choose Multiple if required.') }})</small></label>
                                         <select name="organizer_ids[]" required class="form-control select2" id="org-for-event" multiple>
                                             @foreach ($users as $item)
+                                                @php
+                                                    $orgName = trim($item->first_name . ' ' . $item->last_name) ?: ($item->email ?: 'Organizer #' . $item->id);
+                                                    if (!empty($item->organization_name)) {
+                                                        $orgName .= ' (' . $item->organization_name . ')';
+                                                    }
+                                                @endphp
                                                 <option value="{{ $item->id }}"
                                                     {{ in_array($item->id, (array) old('organizer_ids', [])) ? 'selected' : '' }}>
-                                                    {{ trim($item->first_name . ' ' . $item->last_name) ?: ($item->email ?: 'Organizer #' . $item->id) }}</option>
+                                                    {{ $orgName }}</option>
                                             @endforeach
                                         </select>
                                         @error('organizer_ids')
@@ -139,9 +160,16 @@
                                         <div class="input-group">
                                             <select name="scanner_id[]" class="form-control scanner_id select2" multiple id="scanner_id">
                                                 @foreach ($scanner as $item)
-                                                    <option value="{{ $item->id }}"
-                                                        {{ (is_array(old('scanner_id')) && in_array($item->id, old('scanner_id'))) || $item->id == old('scanner_id') ? 'selected' : '' }}>
-                                                        {{ trim($item->first_name . ' ' . $item->last_name) ?: ($item->email ?: 'Scanner #' . $item->id) }}</option>
+                                                    @php
+                                                        $scannerName = trim($item->first_name . ' ' . $item->last_name) ?: ($item->email ?: 'Scanner #' . $item->id);
+                                                        $orgName = $item->organizer ? trim($item->organizer->organization_name ?: ($item->organizer->first_name . ' ' . $item->organizer->last_name)) : '';
+                                                        if (!empty($orgName) && Auth::user()->hasRole('admin')) {
+                                                            $scannerName .= ' (' . $orgName . ')';
+                                                        }
+                                                        $isSelected = (is_array(old('scanner_id')) && in_array($item->id, old('scanner_id'))) || $item->id == old('scanner_id');
+                                                    @endphp
+                                                    <option value="{{ $item->id }}" {{ $isSelected ? 'selected' : '' }}>
+                                                        {{ $scannerName }}</option>
                                                 @endforeach
                                             </select>
                                             <div class="input-group-append">
@@ -505,23 +533,28 @@
                             console.log('Scanner response:', response);
 
                             if (response.success) {
-                                const prevSelected = Array.isArray(selectedScanners) ? selectedScanners.map(String) : [String(selectedScanners)];
+                                const prevSelected = Array.isArray(selectedScanners) ? selectedScanners.map(String) : (selectedScanners ? [String(selectedScanners)] : []);
 
                                 // Clear existing options
                                 scannerSelect.empty();
+
+                                const validSelected = [];
 
                                 // Add new scanner options
                                 if (response.scanners && response.scanners.length > 0) {
                                     response.scanners.forEach(function(scanner) {
                                         const isSelected = prevSelected.includes(scanner.id.toString());
+                                        if (isSelected) {
+                                            validSelected.push(scanner.id.toString());
+                                        }
                                         const scannerName = scanner.name || (((scanner.first_name || '') + ' ' + (scanner.last_name || '')).trim() || scanner.email || ('Scanner #' + scanner.id));
                                         const option = new Option(scannerName, scanner.id, isSelected, isSelected);
                                         scannerSelect.append(option);
                                     });
                                 }
 
-                                // Update Select2 cleanly
-                                scannerSelect.trigger('change');
+                                // Update Select2 cleanly with validated selected values
+                                scannerSelect.val(validSelected).trigger('change');
 
                                 if (showButton) {
                                     // Show success state briefly

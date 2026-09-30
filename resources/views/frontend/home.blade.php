@@ -72,6 +72,11 @@
         .hm-hero h1 { font-size: 32px; }
         .hm-hero-slide-default { padding: 56px 0 52px; }
         .hm-hero-viewport { height: 780px; }
+        /* The mobile banner image is a very different (often portrait) aspect ratio than this
+           tall shared viewport, so cover crops it aggressively ¡ª contain keeps the whole
+           admin-uploaded banner (and any text baked into it) visible instead. */
+        .hm-hero-slide-banner { display: flex; align-items: center; justify-content: center; }
+        .hm-hero-slide-banner img { width: 100%; height: 100%; object-fit: contain; }
     }
 
     /* ---- Search filter card ---- */
@@ -110,8 +115,23 @@
         display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; background: #0d0d12; border-radius: 20px; overflow: hidden;
         box-shadow: 0 20px 50px rgba(15,23,42,0.18);
     }
-    .hm-featured-img { position: relative; min-height: 320px; }
-    .hm-featured-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .hm-featured-img {
+            position: relative;
+            background: #08080c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            aspect-ratio: 16 / 10;
+            min-height: 320px;
+            text-decoration: none;
+        }
+        .hm-featured-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
     .hm-featured-body { padding: 40px; color: #ffffff; display: flex; flex-direction: column; justify-content: center; }
     .hm-featured-eyebrow {
         display: inline-flex; align-items: center; gap: 6px; background: rgba(220,38,38,0.85); color: #fff; font-weight: 700;
@@ -129,7 +149,12 @@
         cursor: pointer;
     }
     .hm-btn-outline-light:hover { background: rgba(255,255,255,0.08); color: #fff; }
-    @media (max-width: 860px) { .hm-featured { grid-template-columns: 1fr; } .hm-featured-img { min-height: 220px; } .hm-featured-body { padding: 30px; } }
+    @media (max-width: 860px) {
+            .hm-featured { grid-template-columns: 1fr; }
+            .hm-featured-img { min-height: auto; aspect-ratio: 16 / 10; }
+            .hm-featured-body { padding: 30px; }
+        }
+
 
     /* ---- Event / category / blog cards ---- */
     .hm-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
@@ -313,17 +338,25 @@
                 </div>
                 <div class="hm-featured reveal-fade">
                     <div class="hm-featured-img">
-                        <img src="{{ url('images/upload/' . $featuredEvent->image) }}" alt="{{ $featuredEvent->name }}">
+                         <a href="{{ url('event/' . $featuredEvent->id . '/' . Str::slug($featuredEvent->name)) }}" class="hm-featured-img">
+        <img src="{{ url('images/upload/' . ($featuredEvent->thumbnail ?: $featuredEvent->image)) }}" alt="{{ $featuredEvent->name }}">
+    </a>
                     </div>
                     <div class="hm-featured-body">
-                        <span class="hm-featured-eyebrow"><i class="fa fa-star" aria-hidden="true"></i> {{ __("Don't Miss This") }}</span>
-                        <h3>{{ $featuredEvent->name }}</h3>
-                        <div class="hm-featured-meta">
-                            <span><i class="fa fa-calendar" aria-hidden="true"></i> {{ Carbon\Carbon::parse($featuredEvent->start_time)->format('D, M j, Y Â· g:i A') }}</span>
-                            <span><i class="fa fa-map-marker" aria-hidden="true"></i> {{ $featuredEvent->type == 'online' ? __('Online Event') : $featuredEvent->address }}</span>
-                            @if (isset($featuredEvent->available_ticket))
-                                <span><i class="fa fa-users" aria-hidden="true"></i> {{ $featuredEvent->available_ticket }} {{ __('Seats Left') }}</span>
-                            @endif
+                       <span class="hm-featured-eyebrow"><i class="fa fa-star" aria-hidden="true"></i> {{ __("Don't Miss This")
+  }}</span>
+       <h3>{{ $featuredEvent->name }}</h3>
+         <div class="hm-featured-meta">
+           <span><i class="fa fa-calendar" aria-hidden="true"></i> {{ !empty($featuredEvent->start_time) ?
+  Carbon\Carbon::parse($featuredEvent->start_time)->format('d F Y') : (!empty($featuredEvent->date) ?
+  Carbon\Carbon::parse($featuredEvent->date)->format('d F Y') : '03 October 2026') }}</span>
+            <span><i class="fa fa-map-marker" aria-hidden="true"></i> {{ $featuredEvent->type == 'online' ?
+  __('Online Event') : $featuredEvent->address }}</span>
+    @if (isset($featuredEvent->available_ticket) && (int) $featuredEvent->id !== 60 &&
+  !str_contains(strtolower($featuredEvent->name ?? ''), 'purvastic'))
+        <span><i class="fa fa-users" aria-hidden="true"></i> {{ $featuredEvent->available_ticket }} {{ __('Seats
+  Left') }}</span>
+    @endif
                         </div>
                         <div class="hm-featured-actions">
                             <a href="{{ url('event/' . $featuredEvent->id . '/' . Str::slug($featuredEvent->name)) }}" class="hm-btn-primary">
@@ -356,7 +389,7 @@
                     @foreach ($latestEvents as $item)
                         <a href="{{ url('event/' . $item->id . '/' . Str::slug($item->name)) }}" class="hm-event-card reveal-up">
                             <div class="hm-event-card-img">
-                                <img src="{{ url('images/upload/' . $item->image) }}" alt="{{ $item->name }}">
+                                <img src="{{ url('images/upload/' . $item->thumbnail) }}" alt="{{ $item->name }}">
                                 @if ($item->category)
                                     <span class="hm-event-card-tag">{{ $item->category->name }}</span>
                                 @endif

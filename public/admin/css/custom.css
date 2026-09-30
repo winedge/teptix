@@ -580,6 +580,8 @@ span.flatpickr-weekday {
 
 .order-detail img {
     width: 100%;
+    height: 180px;
+    object-fit: cover;
     border-radius: 8px 8px 0px 0px;
 }
 
@@ -860,6 +862,8 @@ tfoot {
     margin: -50px auto 0px;
     border-radius: 5px;
     box-shadow: rgb(16 25 40 / 8%) 0px 4px 8px 0px;
+    object-fit: cover;
+    display: block;
 }
 
 .event-top {
