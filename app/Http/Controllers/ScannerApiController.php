@@ -117,21 +117,88 @@ class ScannerApiController extends Controller
     public function eventDetail($id)
     {
         $img = array();
-        $data = Event::find($id)->makeHidden(['created_at', 'updated_at']);
-        foreach (array_filter(explode(',', $data->gallery)) as $value) {
+        $data = Event::find($id);
+        if (!$data) {
+            return response()->json([
+                'data' => null,
+                'msg' => 'Event not found',
+                'success' => false
+            ], 404);
+        }
 
-            array_push($img, url('images/upload/') . '/' . $value);
+        $data->makeHidden(['created_at', 'updated_at']);
+
+        if (!empty($data->gallery)) {
+            foreach (array_filter(explode(',', $data->gallery)) as $value) {
+                array_push($img, url('images/upload/') . '/' . $value);
+            }
         }
         $data->gallery = $img;
-        $order = Order::where('event_id', $data->id)->get();
-        if (count($order) == 0) {
-            $data->scanTicket = 0;
+
+        // Valid orders (Completed, excluding Refunded and Cancelled orders)
+        $validOrdersQuery = Order::where('event_id', $data->id)
+            ->where('order_status', 'Complete')
+            ->where('order_status', '!=', 'Refunded')
+            ->where('order_status', '!=', 'Cancel')
+            ->where('payment_status', '!=', 2);
+
+        $validOrderIds = $validOrdersQuery->pluck('id');
+
+        if ($validOrderIds->isEmpty()) {
+            $allOrderIds = Order::where('event_id', $data->id)->pluck('id');
+            if ($allOrderIds->isEmpty()) {
+                $ticketsSold = 0;
+                $checkedIn = 0;
+            } else {
+                $ticketsSold = OrderChild::whereIn('order_id', $allOrderIds)->count();
+                if ($ticketsSold === 0) {
+                    $ticketsSold = max(0, intval(Order::whereIn('id', $allOrderIds)->sum('quantity')));
+                }
+                $checkedIn = OrderChild::whereIn('order_id', $allOrderIds)->where('status', 1)->count();
+            }
         } else {
-            $orderData = Order::where('event_id', $data->id)->pluck('id');
-            $data->scanTicket = intval(OrderChild::whereIn('order_id', $orderData)->where('status', 1)->count());
+            $ticketsSold = OrderChild::whereIn('order_id', $validOrderIds)->count();
+            if ($ticketsSold === 0) {
+                $sumQty = $validOrdersQuery->get()->sum(function ($order) {
+                    return intval(preg_replace('/\D/', '', (string) $order->quantity));
+                });
+                $ticketsSold = max(0, intval($sumQty));
+            }
+            $checkedIn = OrderChild::whereIn('order_id', $validOrderIds)->where('status', 1)->count();
         }
+
+        $ticketsSold = max(0, intval($ticketsSold));
+        $checkedIn = max(0, intval($checkedIn));
+        $toCheckIn = max(0, $ticketsSold - $checkedIn);
+        $attendancePercentage = $ticketsSold > 0 ? round(($checkedIn / $ticketsSold) * 100, 2) : 0.0;
+
+        
+        // Maintain existing scanTicket field with actual checked-in count
+        $data->scanTicket = intval($checkedIn);
+        $data->people = 0;
+
+        // Scanner-specific ticket & attendance overview:
+        // Capacity, tickets sold, and remaining stay 0.
+        // checkedIn and toCheckIn show their actual response values.
+
+        $data->ticketOverview = [
+            'totalCapacity'         => 0,
+            'ticketsSold'           => 0,
+            'ticketsRemaining'      => 0,
+            'checkedIn'             => (int) $checkedIn,
+            'toCheckIn'             => (int) $toCheckIn,
+            'ticketSalesPercentage' => 0.0,
+            'attendancePercentage'  => (float) $attendancePercentage,
+            'total_capacity'        => 0,
+            'tickets_sold'          => 0,
+            'tickets_remaining'     => 0,
+            'checked_in'            => (int) $checkedIn,
+            'to_check_in'           => (int) $toCheckIn,
+        ];
+
         return response()->json(['data' => $data, 'success' => true], 200);
     }
+
 
     public function eventUsers($id)
     {

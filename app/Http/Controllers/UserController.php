@@ -1771,7 +1771,8 @@ class UserController extends Controller
             'email' => 'required|email',
             'phone' => 'required|digits:10',
             'custom_amount.*' => 'nullable|numeric|min:0',
-            'tax_custom_amount' => 'required_if:tax_option,custom_amount|nullable|numeric|min:0',
+            'tax_custom_amount' => 'nullable',
+            'tax_custom_amount.*' => 'nullable|numeric|min:0',
         ]);
 
         // Get the event
@@ -1938,11 +1939,21 @@ class UserController extends Controller
 
         // Validate tax_custom_amount (custom price) must be >= 0
         if ($request->tax_option === 'custom_amount') {
-            $taxCustomAmount = floatval($request->tax_custom_amount ?? 0);
-            if ($taxCustomAmount < 0) {
-                return redirect()->back()->withErrors([
-                    'tax_custom_amount' => 'Custom price must be 0 or greater.'
-                ])->withInput();
+            if (is_array($request->tax_custom_amount)) {
+                foreach ($request->tax_custom_amount as $idx => $cAmount) {
+                    if ($cAmount === null || $cAmount === '' || floatval($cAmount) < 0) {
+                        return redirect()->back()->withErrors([
+                            'tax_custom_amount' => 'Custom price must be 0 or greater for all ticket components.'
+                        ])->withInput();
+                    }
+                }
+            } else {
+                $taxCustomAmount = floatval($request->tax_custom_amount ?? 0);
+                if ($taxCustomAmount < 0) {
+                    return redirect()->back()->withErrors([
+                        'tax_custom_amount' => 'Custom price must be 0 or greater.'
+                    ])->withInput();
+                }
             }
         }
 
@@ -1966,6 +1977,27 @@ class UserController extends Controller
             ]);
         }
 
+        // Map ticket_id to custom price when tax_option is custom_amount
+        $customPriceData = [];
+        if ($request->tax_option === 'custom_amount') {
+            if (is_array($request->tax_custom_amount)) {
+                foreach ($request->ticket_id as $i => $tid) {
+                    $customPriceData[$tid] = isset($request->tax_custom_amount[$i]) ? floatval($request->tax_custom_amount[$i]) : 0;
+                }
+            } else {
+                foreach ($request->ticket_id as $i => $tid) {
+                    $customPriceData[$tid] = floatval($request->tax_custom_amount ?? 0);
+                }
+            }
+        }
+
+        $firstCustomAmount = 0;
+        if (is_array($request->tax_custom_amount)) {
+            $firstCustomAmount = !empty($request->tax_custom_amount) ? floatval($request->tax_custom_amount[0]) : 0;
+        } else {
+            $firstCustomAmount = floatval($request->tax_custom_amount ?? 0);
+        }
+
         $data = [
             'ticket_id'   => implode(',', $request->ticket_id),
             'quantity'    => implode(',', $request->quantity),
@@ -1975,8 +2007,9 @@ class UserController extends Controller
             'event_id'    => $request->event_id,
             'seat_data'   => $request->seat_id ?? [], // kept for backward-compatibility (UI now uses custom amount)
             'customData'  => $customData, // per-line custom amounts (flat amount per line)
+            'customPriceData' => $customPriceData, // per-ticket custom prices when tax_option is custom_amount
             'tax_option'  => $request->tax_option ?? 'with_tax', // Add tax option
-            'tax_custom_amount' => isset($request->tax_custom_amount) ? floatval($request->tax_custom_amount) : 0,
+            'tax_custom_amount' => $firstCustomAmount,
             'venue_seat_ids' => $venueSeatIds,
         ];
 
@@ -2041,11 +2074,13 @@ class UserController extends Controller
             // No tax applied
             $totalTax = [];
         } elseif ($taxOption === 'custom_amount') {
-            // Custom amount: the entered value IS the final ticket price (replaces the original price)
-            $customPrice = isset($data['tax_custom_amount']) ? floatval($data['tax_custom_amount']) : 0;
+            // Custom amount: calculate payment based on each ticket component's custom price * quantity
+            $customPriceMap = $data['customPriceData'] ?? [];
+            $defaultCustomPrice = isset($data['tax_custom_amount']) ? floatval($data['tax_custom_amount']) : 0;
             $payment = 0;
             foreach ($ticket as $_ticket) {
                 $qty = isset($data['ticketData'][$_ticket->id]) ? intval($data['ticketData'][$_ticket->id]) : 0;
+                $customPrice = isset($customPriceMap[$_ticket->id]) ? floatval($customPriceMap[$_ticket->id]) : $defaultCustomPrice;
                 $payment += $customPrice * $qty;
             }
             // No tax entries for custom_amount - price is already set
@@ -2087,7 +2122,7 @@ class UserController extends Controller
         $seatData = $data['seat_data'] ?? [];
         $ticketData = $data['ticketData'] ?? [];
         $venueSeatIds = $data['venue_seat_ids'] ?? [];
-        unset($data['seat_data'], $data['ticketData'], $data['customData'], $data['custom_total'], $data['venue_seat_ids']);
+        unset($data['seat_data'], $data['ticketData'], $data['customData'], $data['custom_total'], $data['venue_seat_ids'], $data['customPriceData']);
 
         $order = Order::create($data);
 

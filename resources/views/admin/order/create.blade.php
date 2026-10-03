@@ -138,25 +138,26 @@
 
                             <div id="item-list">
                                 <div class="item-container row mx-0 mb-3 align-items-center p-3 rounded-lg border">
-                                    <div class="col-md-5 px-2 mb-2 mb-md-0">
+                                    <div class="col-md-4 px-2 mb-2 mb-md-0">
                                         <label class="form-label-bold small mb-1">{{ __('Select Ticket Tier') }}</label>
                                         <select class="form-control ticket-dropdown select2" id="ticketId1" name="ticket_id[]" required style="width:100% !important">
                                             <option value="" disabled selected>{{ __('Please select event context first') }}</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-3 px-2 mb-2 mb-md-0">
+                                    <div class="col-md-2 col-sm-6 px-2 mb-2 mb-md-0">
                                         <label class="form-label-bold small mb-1">{{ __('Quantity') }}</label>
                                         <input type="number" name="quantity[]" class="form-control quantity-input" id="quantityInput1" min="1" value="1" required>
                                     </div>
 
-                                    <div class="tax-custom-inline col-md-4 px-2" style="display: none;">
+                                    <div class="tax-custom-inline col-md-4 col-sm-12 px-2 mb-2 mb-md-0" style="display: none;">
                                         <label class="form-label-bold small mb-1">{{ __('Custom Adjusted Price') }}</label>
                                         <div class="input-group">
                                             <div class="input-group-prepend"><span class="input-group-text">{{ $currency }}</span></div>
-                                            <input type="number" step="0.01" min="0" name="tax_custom_amount" id="taxCustomAmount" class="form-control" value="{{ old('tax_custom_amount', 0) }}" />
+                                            <input type="number" step="0.01" min="0" name="tax_custom_amount[]" id="taxCustomAmount" class="form-control custom-price-input" value="{{ old('tax_custom_amount.0', old('tax_custom_amount', 0)) }}" />
                                         </div>
                                         <small class="text-muted xs-text d-block mt-1">{{ __('Overrides individual unit base value details.') }}</small>
                                     </div>
+                                    <div class="col-md-2 col-sm-6 px-2"></div>
                                 </div>
                             </div>
 
@@ -1056,23 +1057,24 @@
                 $submitBtn.removeClass('btn-primary').addClass('btn-success');
                 $submitBtn.html('<i class="fa fa-gift mr-2"></i> {{ __("Create Complimentary Allocation") }}');
                 $('.tax-custom-inline').hide();
-                $('#taxCustomAmount').prop('required', false);
+                $('.custom-price-input').prop('required', false);
             } else if (selectedOption === 'custom_amount') {
                 $submitBtn.removeClass('btn-success').addClass('btn-primary');
                 $submitBtn.html('<i class="fa fa-check-circle mr-2"></i> {{ __("Book Ticket with Manual Override") }}');
                 $('.tax-custom-inline').show();
-                $('#taxCustomAmount').prop('required', true).focus();
+                $('.custom-price-input').prop('required', true);
+                $('#taxCustomAmount').focus();
             } else {
                 $submitBtn.removeClass('btn-success').addClass('btn-primary');
                 $submitBtn.html('<i class="fa fa-check-circle mr-2"></i> {{ __("Complete Booking") }}');
                 $('.tax-custom-inline').hide();
-                $('#taxCustomAmount').prop('required', false);
+                $('.custom-price-input').prop('required', false);
             }
         });
 
         if ($('#taxOption').val() === 'custom_amount') {
             $('.tax-custom-inline').show();
-            $('#taxCustomAmount').prop('required', true);
+            $('.custom-price-input').prop('required', true);
         }
 
         $(document).on("change", ".eventId", function() {
@@ -1162,6 +1164,19 @@
                 }
             });
 
+            if ($('#taxOption').val() === 'custom_amount') {
+                $('.item-container').each(function() {
+                    var $customInput = $(this).find('.custom-price-input');
+                    var val = $customInput.val();
+                    if (val === '' || parseFloat(val) < 0 || isNaN(parseFloat(val))) {
+                        alert('{{ __("Please enter a valid custom price (0 or greater) for all ticket components.") }}');
+                        $customInput.focus();
+                        hasError = true;
+                        return false;
+                    }
+                });
+            }
+
             if (hasError) {
                 e.preventDefault();
                 return false;
@@ -1216,21 +1231,32 @@
         $("#add-more").click(function() {
             itemIndex++;
             var existingTickets = $(".ticket-dropdown:first").html();
+            var isCustom = $('#taxOption').val() === 'custom_amount';
+            var customDisplay = isCustom ? '' : 'style="display: none;"';
+            var customRequired = isCustom ? 'required' : '';
             var newRow = `
                 <div class="row item-container mx-0 mb-3 align-items-center p-3 rounded-lg border">
-                    <div class="col-md-5 px-2 mb-2 mb-md-0">
-                        <label class="form-label-bold small mb-1">Select Ticket Tier</label>
+                    <div class="col-md-4 px-2 mb-2 mb-md-0">
+                        <label class="form-label-bold small mb-1">{{ __('Select Ticket Tier') }}</label>
                         <select class="form-control ticket-dropdown" name="ticket_id[]" required style="width:100% !important">
-                            ${existingTickets ? existingTickets : '<option value="" disabled selected>Please select event context first</option>'}
+                            ${existingTickets ? existingTickets : '<option value="" disabled selected>{{ __("Please select event context first") }}</option>'}
                         </select>
                     </div>
-                    <div class="col-md-4 col-sm-8 px-2">
-                        <label class="form-label-bold small mb-1">Quantity</label>
+                    <div class="col-md-2 col-sm-6 px-2 mb-2 mb-md-0">
+                        <label class="form-label-bold small mb-1">{{ __('Quantity') }}</label>
                         <input type="number" name="quantity[]" class="form-control quantity-input" min="1" value="1" required>
                     </div>
-                    <div class="col-md-3 col-sm-4 px-2 text-right mt-3 mt-sm-0">
+                    <div class="tax-custom-inline col-md-4 col-sm-12 px-2 mb-2 mb-md-0" ${customDisplay}>
+                        <label class="form-label-bold small mb-1">{{ __('Custom Adjusted Price') }}</label>
+                        <div class="input-group">
+                            <div class="input-group-prepend"><span class="input-group-text">{{ $currency }}</span></div>
+                            <input type="number" step="0.01" min="0" name="tax_custom_amount[]" class="form-control custom-price-input" value="0" ${customRequired} />
+                        </div>
+                        <small class="text-muted xs-text d-block mt-1">{{ __('Overrides individual unit base value details.') }}</small>
+                    </div>
+                    <div class="col-md-2 col-sm-6 px-2 text-right mt-2 mt-md-0">
                         <label class="d-block mb-1">&nbsp;</label>
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-item"><i class="fa fa-trash"></i> Drop</button>
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-item"><i class="fa fa-trash"></i> {{ __('Drop') }}</button>
                     </div>
                 </div>`;
             $("#item-list").append(newRow);
@@ -1258,7 +1284,7 @@
             $('#previewBookingBtn').prop('disabled', !ready);
         }
 
-        $(document).on('input change', 'input[name="email"], input[name="phone"]', checkPreviewReady);
+        $(document).on('input change', 'input[name="email"], input[name="phone"], .custom-price-input', checkPreviewReady);
         $(document).on('change', '.eventId, .ticket-dropdown', checkPreviewReady);
         $('#openVenueSeatMapBtn').on('click', loadVenueSeatMap);
 
@@ -1341,27 +1367,29 @@
             var taxOpt = $('#taxOption').val();
             $('#preview_tax_option').text(taxOptionLabels[taxOpt] || taxOpt);
 
-            if (taxOpt === 'custom_amount') {
-                var customPriceVal = parseFloat($('#taxCustomAmount').val() || 0);
-                $('#preview_custom_price').text('{{ $currency }}' + customPriceVal.toFixed(2));
-                $('#preview_custom_price_wrap').show();
-            } else {
-                $('#preview_custom_price_wrap').hide();
-            }
-
             var tbody = $('#preview_ticket_rows').empty();
             var subtotal = 0;
             var rowIndex = 0;
+            var customPrices = [];
 
             $('.item-container').each(function () {
                 var selectedOpt = $(this).find('.ticket-dropdown option:selected');
                 if(!selectedOpt.val()) return;
 
                 var ticketName = selectedOpt.text().split(' [')[0] || '-';
-                var unitPrice = parseFloat(selectedOpt.data('price') || 0);
                 var qty = parseInt($(this).find('.quantity-input').val() || 1);
-                var lineTotal = unitPrice * qty;
+                var unitPrice = 0;
 
+                if (taxOpt === 'complimentary') {
+                    unitPrice = 0;
+                } else if (taxOpt === 'custom_amount') {
+                    unitPrice = parseFloat($(this).find('.custom-price-input').val() || 0);
+                    customPrices.push(unitPrice);
+                } else {
+                    unitPrice = parseFloat(selectedOpt.data('price') || 0);
+                }
+
+                var lineTotal = unitPrice * qty;
                 subtotal += lineTotal;
                 rowIndex++;
 
@@ -1370,20 +1398,32 @@
                     '<td>' + rowIndex + '</td>' +
                     '<td class="font-weight-bold text-dark">' + ticketName + '</td>' +
                     '<td class="text-center">' + qty + '</td>' +
-                    '<td class="text-right">' + (unitPrice > 0 ? '{{ $currency }}' + unitPrice.toFixed(2) : 'Free') + '</td>' +
-                    '<td class="text-right font-weight-bold">' + (lineTotal > 0 ? '{{ $currency }}' + lineTotal.toFixed(2) : 'Free') + '</td>' +
+                    '<td class="text-right">' + (unitPrice > 0 ? '{{ $currency }}' + unitPrice.toFixed(2) : (taxOpt === 'complimentary' ? 'Free' : '{{ $currency }}0.00')) + '</td>' +
+                    '<td class="text-right font-weight-bold">' + (lineTotal > 0 ? '{{ $currency }}' + lineTotal.toFixed(2) : (taxOpt === 'complimentary' ? 'Free' : '{{ $currency }}0.00')) + '</td>' +
                     '</tr>'
                 );
             });
 
             var grandTotal = subtotal;
             if (taxOpt === 'complimentary') {
-                grandTotal = 0; subtotal = 0;
-            } else if (taxOpt === 'custom_amount') {
-                var cp = parseFloat($('#taxCustomAmount').val() || 0);
-                var totalQty = 0;
-                $('.quantity-input').each(function () { totalQty += parseInt($(this).val() || 1); });
-                grandTotal = cp * totalQty; subtotal = grandTotal;
+                grandTotal = 0;
+                subtotal = 0;
+            }
+
+            if (taxOpt === 'custom_amount') {
+                if (customPrices.length > 0) {
+                    var allSame = customPrices.every(function(p) { return p === customPrices[0]; });
+                    if (allSame) {
+                        $('#preview_custom_price').text('{{ $currency }}' + customPrices[0].toFixed(2) + ' per ticket');
+                    } else {
+                        $('#preview_custom_price').text('{{ __("Per-component custom rates applied") }}');
+                    }
+                } else {
+                    $('#preview_custom_price').text('-');
+                }
+                $('#preview_custom_price_wrap').show();
+            } else {
+                $('#preview_custom_price_wrap').hide();
             }
 
             $('#preview_subtotal').text('{{ $currency }}' + Math.max(0, subtotal).toFixed(2));
